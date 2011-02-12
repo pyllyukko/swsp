@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Jan 02
+# modified:	2011 Feb 12
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -352,7 +352,7 @@ function gpg_verify() {
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: sigfile \`${SIGFILE}' does not exist!" 1>&2
     return 1
   fi
-  echo -en "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with gpg..." 1>&3
+  echo -en "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP..." 1>&3
   ##############################################################################
   # GPG FAQ:                                                                   #
   # If the signature file has the same base name as the package file,          #
@@ -477,7 +477,7 @@ function verify_package() {
   fi
   # </complicated>                                                             #
 
-  echo -en "  comparing md5 checksums..." 1>&3
+  echo -en "  comparing MD5 checksums..." 1>&3
   # 19.9.2009: why not use awk?                                                #
   # 14.1.2010: old: `sed -n "/\/${SIGFILE}$/s/^\(.*\)[[:space:]]\+.*$/\1/p" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
   # 14.1.2010: new: sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5"
@@ -505,7 +505,7 @@ function verify_package() {
     ############################################################################
     # SINCE BOTH MD5'S ARE THE SAME, WE RANDOMIZE WHICH ONE TO PRINT=)         #
     ############################################################################
-    echo -e "${HL}match${RST}!\n    md5sum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
+    echo -e "${HL}match${RST}!\n    MD5 checksum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
   } || {
     echo -e "${ERR}mismatch${RST}!" 1>&3
     return ${RET_FAILED}
@@ -1245,8 +1245,8 @@ function sanity_checks() {
     --quiet \
     --fingerprint "Slackware Linux Project <security@slackware.com>" &>/dev/null || {
     # alternative location: http://slackware.com/gpg-key
-    echo -e "${FUNCNAME}(): error: you don't have slackware's public gpg key!" 1>&2
-    echo    "  obtain the gpg key by executing the following two commands:"
+    echo -e "${FUNCNAME}(): error: you don't have slackware's public PGP key!" 1>&2
+    echo    "  obtain the PGP key by executing the following two commands:"
     echo    "    wget ftp://ftp.slackware.com/pub/slackware/${SLACKWARE}-${VERSION}/GPG-KEY"
     echo    "    gpg --keyring \"${GPG_KEYRING}\" --no-default-keyring --import ./GPG-KEY"
     return ${RET_FAILED}
