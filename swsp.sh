@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Feb 12
+# modified:	2011 Mar 02
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -593,11 +593,13 @@ function upgrade_package_from_mirror() {
     verify_package "${PACKAGE}"
     case ${?} in
       ${RET_OK})
+        # dry-run first to check for any problems
+	echo -n $'  dry-run:\n    ' 1>&3
+	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return 1
 	(( ${DRY_RUN} )) && {
-	  echo -n $'  ' 1>&3
-	  upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}"
 	  return 0
 	} || {
+          echo -e "  ${HL}notice${RST}: logging the upgrade process to \`${WORK_DIR}/${PACKAGE_BASENAME}.log'." 1>&3
           echo -en "  upgrading package..." 1>&3
 	  upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" &> "${WORK_DIR}/${PACKAGE_BASENAME}.log" && {
             echo -e "${HL}ok${RST}!" 1>&3
