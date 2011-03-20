@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Mar 02
+# modified:	2011 Mar 20
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -50,8 +50,10 @@
 #                all the 1>&3 and ${HL} stuff?                                 #
 #   * 25.7.2010: replace DRY_RUN with arithmetic...                            #
 #   - 18.8.2010: verify md5 of FILE_LIST                                       #
-#   - 24.10.2010: replace the booleans                                         #
-#                 - run check update before the actual update                  #
+#   * 24.10.2010: replace the booleans                                         #
+#                 * run check update before the actual update                  #
+#   - 12.3.2011: add a function to get and import the PGP key                  #
+#   - 20.3.2011: print all updates (list) before starting the actual process   #
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -142,15 +144,14 @@ declare -a  FAILED_PACKAGES
 declare     ACTION=
 declare     SHOW_DESCRIPTION="true"
 
-# NEW BOOLEANS
-# sorry for the inconsistencies. 0=false 1=true
-declare     USE_SYSLOG=1
-declare     PRINT_WGET_OUTPUT=0
-declare     KERNEL_UPGRADE=0
-declare     SELECT_UPDATES_INDIVIDUALLY=0
-declare -i  DRY_RUN=0
-declare     MONOCHROME=0
-# /NEW BOOLEANS
+# BOOLEANS
+declare USE_SYSLOG=1
+declare PRINT_WGET_OUTPUT=0
+declare KERNEL_UPGRADE=0
+declare SELECT_UPDATES_INDIVIDUALLY=0
+declare DRY_RUN=0
+declare MONOCHROME=0
+# /BOOLEANS
 
 export PATH="/bin:/usr/bin:/sbin"
 export LANG=en_US
@@ -702,6 +703,7 @@ function security_update()
   #     - FILE_LIST seems like the best option to go...                        #
   #                                                                            #
   ##############################################################################
+  echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${ARCH}${RST})"
   case "${PKG_LIST_MODE}" in
     "DISABLEDftp")
       [[ "${MAIN_MIRROR}" =~ "^[a-z]+://([^/]+).+$" ]] && {
@@ -744,6 +746,7 @@ function security_update()
 	then
           #echo "${FUNCNAME}(): DEBUG: ${REPLY[7]}"
           PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
+	# detect kernel upgrade instructions from the file list
 	elif [[ "${REPLY[7]}" =~ "^\./(packages/linux-.+/README)$" ]]
 	then
 	  KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
@@ -834,7 +837,8 @@ function security_update()
       unset -v REPLY
     else
       ############################################################################
-      # PERHAPS YOU DON'T WANT TO UPGRADE YOUR CUSTOM BUILT APACHE?              #
+      # check if the package is "blacklisted", something that you don't want to  #
+      # upgrade with this script.                                                #
       ############################################################################
       for BLACKLISTED in ${UPDATE_BLACKLIST[*]}
       do
@@ -1267,6 +1271,11 @@ function sanity_checks() {
   }
   return ${RET_OK}
 } # sanity_checks()
+################################################################################
+function fetch_and_import_PGP_key() {
+  wget http://www.slackware.com/gpg-key --output-document=- | gpg --keyring trustedkeys.gpg --no-default-keyring --import -
+  return $[ ${PIPESTATUS[0]} | ${PIPESTATUS[1]} ]
+} fetch_and_import_PGP_key()
 ################################################################################
 [ ${#} -eq 0 ] && {
   usage
