@@ -145,12 +145,12 @@ declare -r  SWSP="${0##*/}"
 # PKG_LIST_MODE: ftp || ChangeLog || FILE_LIST                                 #
 ################################################################################
 declare     PKG_LIST_MODE="FILE_LIST"
-declare     CHECKSUMS_VERIFIED=false
 declare -a  PACKAGE
 declare -a  UPGRADED_PACKAGES
 declare -a  FAILED_PACKAGES
 declare     ACTION=
 declare     SHOW_DESCRIPTION="true"
+declare     CHECKSUMS_VERIFIED=false
 
 # BOOLEANS
 declare USE_SYSLOG=1
@@ -1306,7 +1306,7 @@ function fetch_and_import_PGP_key() {
 # output file descriptors:                                                     #
 # fd3 = verbose output                                                         #
 # fd4 = non-verbose output                                                     #
-# fd5 = "real" output (from gpgv, etc.)                                        #
+# fd5 = "real" output (from wget, gpgv, etc.)                                  #
 ################################################################################
 exec 3>&1
 exec 4>/dev/null
