@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Mar 20
+# modified:	2011 Apr 22
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -43,9 +43,17 @@
 #               get processed (regexps are ok and such)                        #
 #   - 22.8.2009: add user agent                                                #
 #   - 19.9.2009: ULTIMATE GOAL: cron                                           #
-#   - 19.9.2009: "standard" output mode, eg. wget prints what it normally does #
+#   * 19.9.2009: "standard" output mode, eg. wget prints what it normally does #
+#     - could be fd5?
+#     - programs:
+#       - wget
+#       - gpgv
+#       - upgradepkg
+#       - others?
+#     - coproc that logs from fd5?
 #   - 19.9.2009: gettext support???                                            #
 #   - 19.9.2009: somehow print the SSA id, maybe even cve...                   #
+#     - from osvdb?
 #   - 22.7.2010: revamp the whole message system, maybe a function instead of  #
 #                all the 1>&3 and ${HL} stuff?                                 #
 #   * 25.7.2010: replace DRY_RUN with arithmetic...                            #
@@ -53,7 +61,7 @@
 #   * 24.10.2010: replace the booleans                                         #
 #                 * run check update before the actual update                  #
 #   - 12.3.2011: add a function to get and import the PGP key                  #
-#   - 20.3.2011: print all updates (list) before starting the actual process   #
+#   * 20.3.2011: print all updates (list) before starting the actual process   #
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -146,7 +154,8 @@ declare     SHOW_DESCRIPTION="true"
 
 # BOOLEANS
 declare USE_SYSLOG=1
-declare PRINT_WGET_OUTPUT=0
+# TODO: rename variable
+declare PRINT_WGET_OUTPUT=1
 declare KERNEL_UPGRADE=0
 declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
@@ -255,7 +264,6 @@ function get_file() {
   ##############################################################################
   local -i RET=0
   local -i BYTES=0
-  local    WGET_PARAM
   local -i WGET_RET=0
   [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
     #            PROTO---   HOST---  DIR-  FILE---                             #
@@ -268,7 +276,6 @@ function get_file() {
     echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
     return ${RET_FAILED}
   }
-  (( ${PRINT_WGET_OUTPUT} )) && local WGET_PARAM="-nv" || local WGET_PARAM="-q"
 
   ##############################################################################
   # NOTE: ADD FILE://                                                          #
@@ -283,7 +290,7 @@ function get_file() {
       # whether or not to download a newer copy of a file depends on the local #
       # and remote timestamp and size of the file.                             #
       ##########################################################################
-      wget "${WGET_PARAM}" --directory-prefix="${WORK_DIR}" --timestamping "${1}"
+      wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 1>&5
       WGET_RET=${?}
       if [ ${WGET_RET} -eq 0 ]
       then
@@ -361,7 +368,8 @@ function gpg_verify() {
   # file, as GnuPG will derive the package's file name from the name           #
   # given (less the .sig or .asc extension).                                   #
   ##############################################################################
-  gpgv --quiet "${SIGFILE}" &>/dev/null
+  echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
+  gpgv --quiet --logger-fd 5 "${SIGFILE}"
   RET=${?}
   case "${RET}" in
     0) echo -e "${HL}ok${RST}!" 1>&3 ;;
@@ -429,7 +437,7 @@ function verify_package() {
     )
   then
     # gpg_verify returned 0, or already verified                               #
-    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (first row)"
+    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (first row)" 1>&2
     CHECKSUMS_VERIFIED=true
   else
     rm -f "${WORK_DIR}/CHECKSUMS.md5" "${WORK_DIR}/CHECKSUMS.md5.asc"
@@ -471,7 +479,7 @@ function verify_package() {
     ${CHECKSUMS_VERIFIED} || \
     gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
   then
-    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)"
+    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
     CHECKSUMS_VERIFIED=true
   else
     return ${RET_FERROR}
@@ -703,7 +711,7 @@ function security_update()
   #     - FILE_LIST seems like the best option to go...                        #
   #                                                                            #
   ##############################################################################
-  echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${ARCH}${RST})"
+  echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${ARCH}${RST})" 1>&3
   case "${PKG_LIST_MODE}" in
     "DISABLEDftp")
       [[ "${MAIN_MIRROR}" =~ "^[a-z]+://([^/]+).+$" ]] && {
@@ -886,6 +894,18 @@ function security_update()
   popd &>/dev/null
   echo -e "${FUNCNAME}(): done processing packages" 1>&3
 
+  # print the list of packages before beginning
+  [ ${#UPDATES[*]} -gt 0 ] && {
+    echo -e "\ngoing to update the following ${HL}${#UPDATES[*]}${RST} package(s):" 1>&3
+    for ((I=0; I<${#UPDATES[*]}; I++))
+    do
+      UPDATE="${UPDATES[${I}]}"
+      UPDATE_BASENAME="${UPDATE##*/}"
+      echo "  ${UPDATE_BASENAME}" 1>&3
+    done
+    echo -n $'\n' 1>&3
+  }
+
   ##############################################################################
 
   for ((I=0; I<${#UPDATES[*]}; I++))
@@ -909,7 +929,8 @@ function security_update()
     upgrade_package_from_mirror "${UPDATE}"
     case ${?} in
       0)
-        if (( ${DRY_RUN} ))
+        # print a message of successful upgrade, also log it if USE_SYSLOG=1.
+        if (( ! ${DRY_RUN} ))
         then
 	  MESSAGE="successfully upgraded package \`${PKG_NAME}' from ${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV} to ${PKG_VERSION}-${PKG_REV}"
 	  # arithmetic - http://www.gnu.org/software/bash/manual/bashref.html#Conditional-Constructs
@@ -1275,18 +1296,22 @@ function sanity_checks() {
 function fetch_and_import_PGP_key() {
   wget http://www.slackware.com/gpg-key --output-document=- | gpg --keyring trustedkeys.gpg --no-default-keyring --import -
   return $[ ${PIPESTATUS[0]} | ${PIPESTATUS[1]} ]
-} fetch_and_import_PGP_key()
+} # fetch_and_import_PGP_key()
 ################################################################################
 [ ${#} -eq 0 ] && {
   usage
   exit 0
 }
 ################################################################################
+# output file descriptors:                                                     #
 # fd3 = verbose output                                                         #
 # fd4 = non-verbose output                                                     #
+# fd5 = "real" output (from gpgv, etc.)                                        #
 ################################################################################
 exec 3>&1
 exec 4>/dev/null
+# print real output of various programs
+(( ${PRINT_WGET_OUTPUT} )) && exec 5>&1 || exec 5>/dev/null
 ################################################################################
 # FIRST PROCESS THE PARAMETERS...                                              #
 ################################################################################
@@ -1349,5 +1374,5 @@ esac
 ################################################################################
 # and then for some totally unnecessary information!-)                         #
 ################################################################################
-echo -e "\nscript finished in ${HL}${SECONDS}${RST} second(s)!"
+echo -e "\nscript finished in ${HL}${SECONDS}${RST} second(s)."
 exit 0
