@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Apr 22
+# modified:	2011 Apr 23
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -56,12 +56,11 @@
 #     - from osvdb?
 #   - 22.7.2010: revamp the whole message system, maybe a function instead of  #
 #                all the 1>&3 and ${HL} stuff?                                 #
-#   * 25.7.2010: replace DRY_RUN with arithmetic...                            #
 #   - 18.8.2010: verify md5 of FILE_LIST                                       #
 #   * 24.10.2010: replace the booleans                                         #
 #                 * run check update before the actual update                  #
 #   - 12.3.2011: add a function to get and import the PGP key                  #
-#   * 20.3.2011: print all updates (list) before starting the actual process   #
+#   - 23.4.2011: option switch that skips the version comparisons
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -149,13 +148,13 @@ declare -a  PACKAGE
 declare -a  UPGRADED_PACKAGES
 declare -a  FAILED_PACKAGES
 declare     ACTION=
-declare     SHOW_DESCRIPTION="true"
 declare     CHECKSUMS_VERIFIED=false
 
 # BOOLEANS
 declare USE_SYSLOG=1
+declare SHOW_DESCRIPTION=1
 # TODO: rename variable
-declare PRINT_WGET_OUTPUT=1
+declare PRINT_WGET_OUTPUT=0
 declare KERNEL_UPGRADE=0
 declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
@@ -190,12 +189,12 @@ function register_prog() {
     local PROG=`/usr/bin/which "${1}" 2>/dev/null`
     [ -z "${PROG}" -o ! -x "${PROG}" ] && {
       echo -e "${FUNCNAME}(): error: couldn't find program: \`${1}'!" 1>&2
-      return 1
+      return ${RET_FAILED}
     } || {
       alias ${1}=${PROG}
     }
   }
-  return 0
+  return ${RET_OK}
 } # register_prog()
 ################################################################################
 for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo ls rm mkdir egrep eval
@@ -290,7 +289,7 @@ function get_file() {
       # whether or not to download a newer copy of a file depends on the local #
       # and remote timestamp and size of the file.                             #
       ##########################################################################
-      wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 1>&5
+      wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
       WGET_RET=${?}
       if [ ${WGET_RET} -eq 0 ]
       then
@@ -573,7 +572,7 @@ function upgrade_package_from_mirror() {
   ##############################################################################
   # show package description if possible                                       #
   ##############################################################################
-  [ -n "${SHOW_DESCRIPTION}" ] && grep -q "patches/packages/${1//./\.}\.tgz" "${WORK_DIR}/ChangeLog.txt" 2>/dev/null && {
+  (( ${SHOW_DESCRIPTION} )) && grep -q "patches/packages/${1//./\.}\.tgz" "${WORK_DIR}/ChangeLog.txt" 2>/dev/null && {
     PACKAGE_NAME=${1%-*-*-*}
     echo -en "  +-[ ${HL}${PACKAGE_NAME}${RST} ]"
     [ ${COLUMNS} -lt 83 ] && local K=$[83-${COLUMNS}]
@@ -606,7 +605,7 @@ function upgrade_package_from_mirror() {
 	echo -n $'  dry-run:\n    ' 1>&3
 	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return 1
 	(( ${DRY_RUN} )) && {
-	  return 0
+	  return ${RET_OK}
 	} || {
           echo -e "  ${HL}notice${RST}: logging the upgrade process to \`${WORK_DIR}/${PACKAGE_BASENAME}.log'." 1>&3
           echo -en "  upgrading package..." 1>&3
@@ -616,7 +615,7 @@ function upgrade_package_from_mirror() {
 	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
             ####################################################################
 	    UPGRADED_PACKAGES[${#UPGRADED_PACKAGES[*]}]="${PACKAGE_BASENAME}"
-	    return 0
+	    return ${RET_OK}
           } || {
 	    echo -e "${ERR}FAILED${RST}, check the log in \`${HL}${WORK_DIR}/${PACKAGE_BASENAME}.log${RST}'!" 1>&3
             return 1
@@ -678,6 +677,9 @@ function architecture_check() {
 ################################################################################
 function security_update()
 {
+  # security_update() function                                                 #
+  #                                                                            #
+  # possible return values: return RET_OK || RET_FAILED                        #
   declare  FTP_PATH_SUFFIX="${SLACKWARE}-${VERSION}/patches/packages"
   local -i RET=${RET_OK}
   local -i I
@@ -718,7 +720,7 @@ function security_update()
         local HOST="${BASH_REMATCH[1]}"
       } || {
 	echo "${FUNCNAME}(): error at line $[${LINENO}-3]!" 1>&2
-	return 1
+	return ${RET_FAILED}
       }
       echo -en "reading packages directly from ${HL}${HOST}${RST}..." 1>&3
       wget --quiet --directory-prefix="${WORK_DIR}" --no-remove-listing "${MAIN_MIRROR}/${FTP_PATH_SUFFIX}/"
@@ -738,10 +740,10 @@ function security_update()
       get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/ChangeLog.txt"
       [ ${?} -ne 0 ] && {
         echo "${FUNCNAME}(): error: an error occurred at line $[${LINENO}-2] while wgetting the changelog!" 1>&2
-        return 1
+        return ${RET_FAILED}
       }
       echo -en "reading packages from \`${HL}ChangeLog.txt${RST}'..." 1>&3
-      PACKAGES=(`read_packages_from_changelog`) || return 1
+      PACKAGES=(`read_packages_from_changelog`) || return ${RET_FAILED}
     ;;
     "FILE_LIST")
       echo "${FUNCNAME}(): please wait..." 1>&3
@@ -763,16 +765,25 @@ function security_update()
     ;;
     *)
       echo "${FUNCNAME}(): error: invalid mode \`${PKG_LIST_MODE}'!"
-      return 1
+      return ${RET_FAILED}
+    ;;
   esac # "${PKG_LIST_MODE}"
   [ ${#PACKAGES[*]} -eq 0 ] && {
-    # 21.8.2009: TODO: replace with cat <<-
-    echo -e "${ERR}failed${RST}!\n  0 packages found, this could mean three things:\n  a) there really is no security updates available\n  - or -\n  b) we couldn't access slackware's ftp\n  - or -\n  c) this script is broken" 1>&3
-    return 1
+    cat 0<<-EOF 1>&3
+	${ERR}failed${RST}!
+	  0 packages found, this could mean three things:
+	  a) there really is no security updates available
+	  - or -
+	  b) we couldn't access slackware's ftp
+	  - or -
+	  c) this script is broken
+EOF
+    # TODO: return OK or FAILED?
+    return ${RET_FAILED}
   } || {
     echo -e "${HL}done${RST} (${HL}${#PACKAGES[*]}${RST} packages)!\n" 1>&3
   }
-  pushd /var/log/packages &>/dev/null || return 1
+  pushd /var/log/packages &>/dev/null || return ${RET_FAILED}
   ##############################################################################
   # PROCESS THE LIST BEFORE ACTUAL UPGRADE                                     #
   ##############################################################################
@@ -1208,6 +1219,9 @@ function split_package_name() {
 } # split_package_name()
 ################################################################################
 function print_configuration() {
+  ##############################################################################
+  # this function just prints all kinds of different configurations            #
+  ##############################################################################
   echo -e "configuration:"
   echo -e "  slackware version:\t${HL}${SLACKWARE} ${VERSION}${RST}"
   echo -e "  pid:\t\t\t${HL}$$${RST}"
@@ -1215,7 +1229,7 @@ function print_configuration() {
   echo -e "  columns:\t\t${HL}${COLUMNS}${RST}"
   echo -e "  set flags:\t\t${HL}$-${RST}"
   (( ${MONOCHROME} )) && echo -e "  MONOCHROME:\t\t${HL}true${RST}" || echo -e "  MONOCHROME:\t\t${HL}false${RST}"
-  [ ${SHOW_DESCRIPTION} ] && echo -e "  SHOW_DESCRIPTION:\t${HL}true${RST}" || echo -e "  SHOW_DESCRIPTION:\t${HL}false${RST}"
+  (( ${SHOW_DESCRIPTION} )) && echo -e "  SHOW_DESCRIPTION:\t${HL}true${RST}" || echo -e "  SHOW_DESCRIPTION:\t${HL}false${RST}"
   echo -e "  PKG_LIST_MODE:\t${HL}${PKG_LIST_MODE}${RST}"
   echo -e "\nmirrors:"
   for ((I=0; I<=$[${#MIRRORS[*]}-1]; I++))
@@ -1224,11 +1238,13 @@ function print_configuration() {
   done
   echo -e "\nfunctions:"
   declare -f 2>/dev/null | sed -n '/^.* ().$/s/^/  /p'
-  return 0
+  return ${RET_OK}
 } # print_configuration()
 ################################################################################
 function sanity_checks() {
   ##############################################################################
+  # run few sanity checks to make sure there are no show stoppers              #
+  #                                                                            #
   # returns eiher RET_OK or RET_FAILED                                         #
   ##############################################################################
   local FINGERPRINT
@@ -1328,7 +1344,7 @@ do
     "n")
       # non-verbose mode
       exec 3>/dev/null 4>&1
-      MONOCHROME=1 SHOW_DESCRIPTION=
+      MONOCHROME=1 SHOW_DESCRIPTION=0
     ;;
     "p") ACTION="print_config"	;;
     "s") ACTION="print_stats"	;;
@@ -1349,7 +1365,7 @@ done
   declare -r SCP="\033[s"
   declare -r RCP="\033[u"
 }
-sanity_checks || exit 1
+sanity_checks || exit ${RET_FAILED}
 ################################################################################
 # ...THEN DECIDE WHAT TO DO!                                                   #
 ################################################################################
@@ -1365,12 +1381,13 @@ case "${ACTION}" in
     exit 0
   ;;
 esac
+# if swsp detected kernel updates amongst the upgraded packages,               #
+# a little reminder.                                                           #
 (( ${KERNEL_UPGRADE} )) && {
   echo -e "\n${HL}notice${RST}: kernel updates"
   [ -n "${KERNEL_UPGRADE_README}" ] && echo "        there seems to be a README available at ${KERNEL_UPGRADE_README}, i suggest you read it."
   echo -n $'\n'
 }
-#echo "DEBUG: kernel README: ${KERNEL_UPGRADE_README}"
 ################################################################################
 # and then for some totally unnecessary information!-)                         #
 ################################################################################
