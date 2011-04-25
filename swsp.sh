@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Apr 23
+# modified:	2011 Apr 25
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -54,6 +54,8 @@
 #   - 19.9.2009: gettext support???                                            #
 #   - 19.9.2009: somehow print the SSA id, maybe even cve...                   #
 #     - from osvdb?
+#    4.10.2009   -- trap DEBUG?                                                #
+#    8.10.2009   -- we could add a comparison count on read packages (grep -c) #
 #   - 22.7.2010: revamp the whole message system, maybe a function instead of  #
 #                all the 1>&3 and ${HL} stuff?                                 #
 #   - 18.8.2010: verify md5 of FILE_LIST                                       #
@@ -61,6 +63,8 @@
 #                 * run check update before the actual update                  #
 #   - 12.3.2011: add a function to get and import the PGP key                  #
 #   - 23.4.2011: option switch that skips the version comparisons
+#   - 25.4.2011: break the script down with functions, so the main function
+#                and loops look cleaner
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -98,8 +102,7 @@
 #   21. 8.2009   -- as of now FILE_LIST is the only completely working mode    #
 #   19. 9.2009   -- with slackware 13 we have to support .txz extension        #
 #                   ...working on it                                           #
-#    4.10.2009   -- trap DEBUG?                                                #
-#    8.10.2009   -- we could add a comparison count on read packages (grep -c) #
+#    2010-2011   -- plenty of changes, i just haven't documented them=)        #
 #                                                                              #
 ################################################################################
 [ ${BASH_VERSINFO[0]} -lt 3 ] && {
@@ -264,6 +267,9 @@ function get_file() {
   local -i RET=0
   local -i BYTES=0
   local -i WGET_RET=0
+
+  print_stack
+
   [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
     #            PROTO---   HOST---  DIR-  FILE---                             #
     ############################################################################
@@ -384,6 +390,8 @@ function gpg_verify() {
 ################################################################################
 function verify_package() {
   ##############################################################################
+  # this function checks the MD5 from CHECKSUMS.md5 and runs gpg_verify()      #
+  #                                                                            #
   # input                                                                      #
   #   $1 = dir/package-version-architecture-revision.extension                 #
   # return                                                                     #
@@ -1173,6 +1181,7 @@ function usage() {
 	    -H   show upgrade history
 	    -l	 list available updates
 	    -p	 print configuration
+	    -P	 fetch and import Slackware's PGP key
 	    -s   print patch statistics
 	    -u	 update
 	    -U	 check for swsp updates
@@ -1195,6 +1204,7 @@ function split_package_name() {
   #                                                                            #
   # returns RET_OK || RET_FAILED                                               #
   ##############################################################################
+  # with file extension
   if [[ "${1}" =~ "^(.+)-([^-]+)-([^-]+)-([^-]+)\.(t[gx]z)$" ]]
   then
     eval ${2}_NAME=${BASH_REMATCH[1]}
@@ -1202,6 +1212,7 @@ function split_package_name() {
     eval ${2}_ARCH=${BASH_REMATCH[3]}
     eval ${2}_REV=${BASH_REMATCH[4]}
     eval ${2}_EXT=${BASH_REMATCH[5]}
+  # without file extension
   elif [[ "${1}" =~ "^(.+)-([^-]+)-([^-]+)-([^-]+)$" ]]
   then
     eval ${2}_NAME=${BASH_REMATCH[1]}
@@ -1212,9 +1223,6 @@ function split_package_name() {
     echo "${FUNCNAME}(): error: invalid package \`${1}'!" 1>&2
     return ${RET_FAILED}
   fi
-  ##############################################################################
-  # SPLIT TO SEPARATE FIELD                                                    #
-  ##############################################################################
   return ${RET_OK}
 } # split_package_name()
 ################################################################################
@@ -1223,7 +1231,7 @@ function print_configuration() {
   # this function just prints all kinds of different configurations            #
   ##############################################################################
   echo -e "configuration:"
-  echo -e "  slackware version:\t${HL}${SLACKWARE} ${VERSION}${RST}"
+  echo -e "  Slackware version:\t${HL}${SLACKWARE} ${VERSION}${RST}"
   echo -e "  pid:\t\t\t${HL}$$${RST}"
   echo -e "  working directory:\t${HL}${WORK_DIR}${RST}"
   echo -e "  columns:\t\t${HL}${COLUMNS}${RST}"
@@ -1274,7 +1282,7 @@ function sanity_checks() {
     return ${RET_FAILED}
   }
   [[ "${VERSION}" =~ "^[0-9]+\.[0-9]+$" ]] || {
-    echo "${FUNCNAME}(): error: couldn't determine slackware's version!" 1>&2
+    echo "${FUNCNAME}(): error: couldn't determine Slackware's version!" 1>&2
     return ${RET_FAILED}
   }
   ##############################################################################
@@ -1288,18 +1296,23 @@ function sanity_checks() {
     --quiet \
     --fingerprint "Slackware Linux Project <security@slackware.com>" &>/dev/null || {
     # alternative location: http://slackware.com/gpg-key
-    echo -e "${FUNCNAME}(): error: you don't have slackware's public PGP key!" 1>&2
-    echo    "  obtain the PGP key by executing the following two commands:"
-    echo    "    wget ftp://ftp.slackware.com/pub/slackware/${SLACKWARE}-${VERSION}/GPG-KEY"
-    echo    "    gpg --keyring \"${GPG_KEYRING}\" --no-default-keyring --import ./GPG-KEY"
+    echo -e "${FUNCNAME}(): error: you don't have Slackware's public PGP key!" 1>&2
+    cat 0<<-EOF 1>&3
+	obtain the PGP key by executing the following two commands:
+	  wget ftp://ftp.slackware.com/pub/slackware/${SLACKWARE}-${VERSION}/GPG-KEY
+	  gpg --keyring \"${GPG_KEYRING}\" --no-default-keyring --import ./GPG-KEY
+
+	or use the -P switch to do this automatically
+EOF
     return ${RET_FAILED}
   }
+  # compare the fingerprint to the one swsp knows
   FINGERPRINT=`gpg \
     --keyring "${GPG_KEYRING}" \
     --no-default-keyring \
     --fingerprint "Slackware Linux Project <security@slackware.com>" | awk '/Key fingerprint/{sub(/^.+= /, "");print}'`
   [ "x${PRIMARY_KEY_FINGERPRINT}" != "x${FINGERPRINT}" ] && {
-    echo "${FUNCNAME}(): error: slackware's primary key fingerprint differs from the one that ${SWSP%\.sh} knows!?!" 1>&2
+    echo "${FUNCNAME}(): error: Slackware's primary key fingerprint differs from the one that ${SWSP%\.sh} knows!?!" 1>&2
     return ${RET_FAILED}
   }
   [[ "${COLUMNS}" =~ "^[0-9]+$" ]] || {
@@ -1313,6 +1326,16 @@ function fetch_and_import_PGP_key() {
   wget http://www.slackware.com/gpg-key --output-document=- | gpg --keyring trustedkeys.gpg --no-default-keyring --import -
   return $[ ${PIPESTATUS[0]} | ${PIPESTATUS[1]} ]
 } # fetch_and_import_PGP_key()
+################################################################################
+function print_stack() {
+  local -i I
+  echo "${FUNCNAME}(): execution call stack:"
+  for ((I=0; I<${#FUNCNAME[*]}; I++))
+  do
+    echo "  ${I}: ${FUNCNAME[${I}]} called from line ${BASH_LINENO[${I}]}"
+  done
+  return 0
+}
 ################################################################################
 [ ${#} -eq 0 ] && {
   usage
@@ -1331,7 +1354,7 @@ exec 4>/dev/null
 ################################################################################
 # FIRST PROCESS THE PARAMETERS...                                              #
 ################################################################################
-while getopts ":df:hiHlmnpsuUx" OPTION
+while getopts ":df:hiHlmnpPsuUx" OPTION
 do
   case "${OPTION}" in
     "d") DRY_RUN=1 ACTION="update"	;;
@@ -1347,6 +1370,7 @@ do
       MONOCHROME=1 SHOW_DESCRIPTION=0
     ;;
     "p") ACTION="print_config"	;;
+    "P") ACTION="fetch_PGP_key"	;;
     "s") ACTION="print_stats"	;;
     "u") ACTION="update"	;;
     "U") ACTION="check_updates"	;;
@@ -1371,6 +1395,7 @@ sanity_checks || exit ${RET_FAILED}
 ################################################################################
 case "${ACTION}" in
   "check_updates") check_for_updates          ;;
+  "fetch_PGP_key") fetch_and_import_PGP_key   ;;
   "history")       show_upgrade_history       ;;
   "list_updates")  list_updates               ;;
   "print_config")  print_configuration | more ;;
