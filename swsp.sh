@@ -200,7 +200,7 @@ function register_prog() {
   return ${RET_OK}
 } # register_prog()
 ################################################################################
-for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo ls rm mkdir egrep eval
+for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo rm mkdir egrep eval
 do
   register_prog "${PROGRAM}" || exit 1
 done
@@ -268,7 +268,7 @@ function get_file() {
   local -i BYTES=0
   local -i WGET_RET=0
 
-  print_stack
+  #print_stack
 
   [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
     #            PROTO---   HOST---  DIR-  FILE---                             #
@@ -825,7 +825,10 @@ EOF
     shopt -s extglob nullglob
     LOCAL_FILES=(${GLOB})
     shopt -u extglob nullglob
+
+    # no such package installed, no need to update
     [ ${#LOCAL_FILES[*]} -eq 0 ] && continue
+
     [ ${#LOCAL_FILES[*]} -gt 1 ] && {
       echo -e "${FUNCNAME}(): ${WRN}warning${RST}:\n  multiple packages with the same name,\n  refusing to guess which one to upgrade (${HL}${PKG_NAME}${RST})!" 1>&2
       continue
@@ -862,6 +865,7 @@ EOF
         esac
       done
       unset -v REPLY
+    # select updates automatically
     else
       ############################################################################
       # check if the package is "blacklisted", something that you don't want to  #
