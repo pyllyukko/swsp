@@ -58,7 +58,7 @@
 #    8.10.2009   -- we could add a comparison count on read packages (grep -c) #
 #   - 22.7.2010: revamp the whole message system, maybe a function instead of  #
 #                all the 1>&3 and ${HL} stuff?                                 #
-#   - 18.8.2010: verify md5 of FILE_LIST                                       #
+#   * 18.8.2010: verify md5 of FILE_LIST                                       #
 #   * 24.10.2010: replace the booleans                                         #
 #                 * run check update before the actual update                  #
 #   - 12.3.2011: add a function to get and import the PGP key                  #
@@ -147,6 +147,9 @@ declare -r  PRIMARY_KEY_FINGERPRINT="EC56 49DA 401E 22AB FA67  36EF 6A44 63C0 40
 declare -r  SWSP="${0##*/}"
 ################################################################################
 # PKG_LIST_MODE: ftp || ChangeLog || FILE_LIST                                 #
+#                                                                              #
+# FILE_LIST is a good method, since we can verify it's MD5 from CHECKSUMS.md5  #
+# and verify CHECKSUMS.md5 with PGP                                            #
 ################################################################################
 declare     PKG_LIST_MODE="FILE_LIST"
 declare -a  PACKAGE
@@ -159,7 +162,7 @@ declare     CHECKSUMS_VERIFIED=false
 declare USE_SYSLOG=1
 declare SHOW_DESCRIPTION=1
 # TODO: rename variable
-declare PRINT_WGET_OUTPUT=1
+declare PRINT_WGET_OUTPUT=0
 declare KERNEL_UPGRADE=0
 declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
@@ -260,8 +263,10 @@ function get_file() {
   # 20.3.2008: simplified this function                                        #
   #  5.4.2008: TODO: detect if we're called from a function, and apply the '  '#
   #                  prefix accordingly                                        #
+  # 25.6.2011: added support for downloading multiple files at once            #
+  #            TODO: should we check MD5s here?
   # input:                                                                     #
-  #   $1 = url_to_file                                                         #
+  #   $* = url(s)_to_file                                                      #
   # return                                                                     #
   #   0: ok                                                                    #
   #   1: failed (for any reason)                                               #
@@ -272,55 +277,61 @@ function get_file() {
   local -a TIMESTAMPS
 
   #print_stack
+  while [ -n "${1}" ]
+  do
 
-  [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
-    #            PROTO---   HOST---  DIR-  FILE---                             #
-    ############################################################################
-    local PROTO="${BASH_REMATCH[1]}"
-    local HOST="${BASH_REMATCH[2]}"
-    local DIR="${BASH_REMATCH[3]}"
-    local FILE="${BASH_REMATCH[4]}"
-  } || {
-    echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
-    return ${RET_FAILED}
-  }
+    [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
+      #            PROTO---   HOST---  DIR-  FILE---                             #
+      ############################################################################
+      local PROTO="${BASH_REMATCH[1]}"
+      local HOST="${BASH_REMATCH[2]}"
+      local DIR="${BASH_REMATCH[3]}"
+      local FILE="${BASH_REMATCH[4]}"
+    } || {
+      echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
+      return ${RET_FAILED}
+    }
 
-  ##############################################################################
-  # NOTE: ADD FILE://                                                          #
-  ##############################################################################
+    ##############################################################################
+    # NOTE: ADD FILE://                                                          #
+    ##############################################################################
 
-  case "${PROTO}" in
-    "ftp"|"http")
-      echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
-      [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
-      ##########################################################################
-      # wget(1):                                                               #
-      # When running Wget with -N, with or without -r, the decision as to      #
-      # whether or not to download a newer copy of a file depends on the local #
-      # and remote timestamp and size of the file.                             #
-      ##########################################################################
-      wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
-      WGET_RET=${?}
-      TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
-      if [ ${WGET_RET} -eq 0 ]
-      then
-	# detect whether we downloaded anything
-	[ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ] && {
-          echo "  server file no newer than local file" 1>&3
-        } || {
-	  BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
-	  echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
-        }
-      else
-	echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
-	RET=${RET_FAILED}
-      fi
-    ;;
-    *)
-      echo "${FUNCNAME}(): error: invalid protocol \`${PROTO}' -- only ftp currently supported!" 1>&2
-      RET=${RET_FAILED}
-    ;;
-  esac # case ${PROTO}
+    case "${PROTO}" in
+      "ftp"|"http")
+	TIMESTAMPS=()
+        echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
+        [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+        ##########################################################################
+        # wget(1):                                                               #
+        # When running Wget with -N, with or without -r, the decision as to      #
+        # whether or not to download a newer copy of a file depends on the local #
+        # and remote timestamp and size of the file.                             #
+        ##########################################################################
+        wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
+        WGET_RET=${?}
+        TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+        if [ ${WGET_RET} -eq 0 ]
+        then
+          # detect whether we downloaded anything
+          [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ] && {
+            echo "  server file no newer than local file" 1>&3
+          } || {
+            BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
+            echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
+          }
+        else
+          echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
+          RET=${RET_FAILED}
+        fi
+      ;;
+      *)
+        echo "${FUNCNAME}(): error: invalid protocol \`${PROTO}' -- only ftp currently supported!" 1>&2
+        RET=${RET_FAILED}
+      ;;
+    esac # case ${PROTO}
+
+    shift 1
+  done
   return ${RET}
 } # get_file()
 ################################################################################
@@ -338,7 +349,41 @@ function get_files() {
 } # get_files()
 ################################################################################
 function md5_verify() {
-  echo -en "  comparing MD5 checksums..." 1>&3
+  # $1 = how to find it in CHECKSUMS.md5
+  # $2 = the actual file to verify
+  #
+  # currently, can only return $RET_FAILED
+  # 25.6.2011: TODO: change the SIGFILE_BASENAME variable name
+  local -a MD5SUMS
+  local    SIGFILE
+  local    SIGFILE_BASENAME
+  local SIGFILE="${1}"
+  local SIGFILE_BASENAME="${2}"
+
+  [ ! -f "${WORK_DIR}/CHECKSUMS.md5" -o ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ] && {
+    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 or CHECKSUMS.md5.asc missing!" 1>&2
+    return ${RET_FAILED}
+  }
+  [ ! -f "${WORK_DIR}/${SIGFILE_BASENAME}" ] && {
+    echo "  ${FUNCNAME}(): error: file \`${SIGFILE_BASENAME}' does not exist!" 1>&2
+    return ${RET_FAILED}
+  }
+  ##############################################################################
+  # if we can't verify CHECKSUMS file, we can't use it to compare MD5s         #
+  # so we'll return with fatal error and abort the whole upgrade procedure     #
+  ##############################################################################
+  # if either of these is true...                                              #
+  if \
+    ${CHECKSUMS_VERIFIED} || \
+    gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
+  then
+    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
+    CHECKSUMS_VERIFIED=true
+  else
+    return ${RET_FERROR}
+  fi
+
+  echo -en "  comparing MD5 checksums for file \`${HL}${SIGFILE_BASENAME}${RST}'..." 1>&3
   # 19.9.2009: why not use awk?                                                #
   # 14.1.2010: old: `sed -n "/\/${SIGFILE}$/s/^\(.*\)[[:space:]]\+.*$/\1/p" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
   # 14.1.2010: new: sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5"
@@ -448,38 +493,20 @@ function verify_package() {
   #        -> upgrade_package_from_mirror() skips the whole package            #
   #   3: $RET_FERROR = fatal error, can't upgrade ANY packages!                #
   ##############################################################################
-  local -a MD5SUMS
   local    FILE
   local    SIGFILE="${1}.asc"
   local    SIGFILE_BASENAME="${SIGFILE##*/}"
 
-  #echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
+  echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
 
   # can't verify this package at all? return RET_ERROR and go on to the next p #
   [ -f "${WORK_DIR}/${SIGFILE_BASENAME}" ] || \
     get_file "${MAIN_MIRROR}/${FTP_PATH_SUFFIX}/${SIGFILE}" || \
       return ${RET_ERROR}
 
-  #  ${CHECKSUMS_VERIFIED} || \
-  #if [ ! -f "${WORK_DIR}/CHECKSUMS.md5" -o ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ] || \
-     # in case the local files are borked                                      #
-     #! gpg_verify "${WORK_DIR}/CHECKSUMS.md5" "${PRIMARY_KEY_FINGERPRINT}"
-  #then
-    #rm -f "${WORK_DIR}/CHECKSUMS.md5" "${WORK_DIR}/CHECKSUMS.md5.asc"
-    #for FILE in "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
-    #do
-      # no CHECKSUMS = no MD5s = no updates = FATAL ERROR!                     #
-      #get_file "${MAIN_MIRROR}/slackware-${VERSION}/${FILE}" || return ${RET_FERROR}
-    #done
-    #CHECKSUMS_VERIFIED=false
-  #else
-    # gpg_verify returned 0                                                    #
-    #echo "${FUNCNAME}(): DEBUG: CHECKSUMS verified (first row)"
-    #CHECKSUMS_VERIFIED=true
-  #fi
-
   # do we have the files, do they verify?                                      #
   # 11.10.2009: this is getting too complicated=)                              #
+  # 25.6.2011: TODO: clean up!
   if \
     # we MUST have the files AND either of the two criterias true              #
     [ -f "${WORK_DIR}/CHECKSUMS.md5" -a -f "${WORK_DIR}/CHECKSUMS.md5.asc" ] && \
@@ -523,24 +550,11 @@ function verify_package() {
     }
   fi
 
-  ##############################################################################
-  # if we can't verify CHECKSUMS file, we can't use it to compare MD5s         #
-  # so we'll return with fatal error and abort the whole upgrade procedure     #
-  ##############################################################################
-  # if either of these is true...                                              #
-  if \
-    ${CHECKSUMS_VERIFIED} || \
-    gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
-  then
-    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
-    CHECKSUMS_VERIFIED=true
-  else
-    return ${RET_FERROR}
-  fi
   # </complicated>                                                             #
 
-  md5_verify
-  gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}" || return ${RET_FAILED}
+  md5_verify "${1}" "${1}"							|| return ${RET_FAILED}
+  md5_verify "${SIGFILE}" "${SIGFILE}"						|| return ${RET_FAILED}
+  gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
 ################################################################################
@@ -770,8 +784,12 @@ function security_update()
     "FILE_LIST")
       echo "${FUNCNAME}(): please wait..." 1>&3
       # 21.8.2009: TODO: fix (to use) FTP_PATH_SUFFIX                          #
-      # 26.6.2011: TODO: verify FILE_LIST from CHECKSUMS!
       get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/FILE_LIST"
+      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5" "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5.asc"
+      CHECKSUMS_VERIFIED=false
+      md5_verify "/patches/FILE_LIST" "FILE_LIST" || {
+        return ${RET_FAILED}
+      }
       echo -en "reading packages from \`${HL}FILE_LIST${RST}'..." 1>&3
       while read -a REPLY
       do
@@ -1389,7 +1407,11 @@ do
       MONOCHROME=1 SHOW_DESCRIPTION=0
     ;;
     "p") ACTION="print_config"	;;
-    "P") ACTION="fetch_PGP_key"	;;
+    "P")
+      # this needs to be done before the sanity_checks()
+      fetch_and_import_PGP_key
+      exit 0
+    ;;
     "s") ACTION="print_stats"	;;
     "u") ACTION="update"	;;
     "U") ACTION="check_updates"	;;
@@ -1414,7 +1436,6 @@ sanity_checks || exit ${RET_FAILED}
 ################################################################################
 case "${ACTION}" in
   "check_updates") check_for_updates          ;;
-  "fetch_PGP_key") fetch_and_import_PGP_key   ;;
   "history")       show_upgrade_history       ;;
   "list_updates")  list_updates               ;;
   "print_config")  print_configuration | more ;;
