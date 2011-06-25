@@ -337,6 +337,42 @@ function get_files() {
   return ${RET_OK}
 } # get_files()
 ################################################################################
+function md5_verify() {
+  echo -en "  comparing MD5 checksums..." 1>&3
+  # 19.9.2009: why not use awk?                                                #
+  # 14.1.2010: old: `sed -n "/\/${SIGFILE}$/s/^\(.*\)[[:space:]]\+.*$/\1/p" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
+  # 14.1.2010: new: sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5"
+
+  #echo "${FUNCNAME}(): DEBUG: SIGFILE=\"${SIGFILE}\""
+  # example line from CHECKSUMS.md5:
+  # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
+  # $SIGFILE could include /'s so we use `:' with sed                          #
+  MD5SUMS=(
+    `sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+\..*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
+    `md5sum "${WORK_DIR}/${SIGFILE_BASENAME}" 2>/dev/null | awk '{print $1}'`
+  )
+  # sanity check... better safe than sorry                                     #
+  [ ${#MD5SUMS[*]} -ne 2 -o \
+    ${#MD5SUMS[0]} -ne 32 -o \
+    ${#MD5SUMS[1]} -ne 32 ] && {
+    ############################################################################
+    # NOTE: OF COURSE THIS SHOULD NEVER HAPPEN!                                #
+    ############################################################################
+    echo -e "${ERR}error${RST}!" 1>&3
+    echo "${FUNCNAME}(): error between lines $[${LINENO}-12]-$[${LINENO}-9]!" 1>&2
+    return ${RET_ERROR}
+  }
+  [ "x${MD5SUMS[0]}" = "x${MD5SUMS[1]}" ] && {
+    ############################################################################
+    # SINCE BOTH MD5'S ARE THE SAME, WE RANDOMIZE WHICH ONE TO PRINT=)         #
+    ############################################################################
+    echo -e "${HL}match${RST}!\n    MD5 checksum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
+  } || {
+    echo -e "${ERR}mismatch${RST}!" 1>&3
+    return ${RET_FAILED}
+  }
+} # md5_verify
+################################################################################
 function gpg_verify() {
   ##############################################################################
   # input:                                                                     #
@@ -503,39 +539,7 @@ function verify_package() {
   fi
   # </complicated>                                                             #
 
-  echo -en "  comparing MD5 checksums..." 1>&3
-  # 19.9.2009: why not use awk?                                                #
-  # 14.1.2010: old: `sed -n "/\/${SIGFILE}$/s/^\(.*\)[[:space:]]\+.*$/\1/p" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
-  # 14.1.2010: new: sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5"
-
-  #echo "${FUNCNAME}(): DEBUG: SIGFILE=\"${SIGFILE}\""
-  # example line from CHECKSUMS.md5:
-  # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
-  # $SIGFILE could include /'s so we use `:' with sed                          #
-  MD5SUMS=(
-    `sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+\..*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
-    `md5sum "${WORK_DIR}/${SIGFILE_BASENAME}" 2>/dev/null | awk '{print $1}'`
-  )
-  # sanity check... better safe than sorry                                     #
-  [ ${#MD5SUMS[*]} -ne 2 -o \
-    ${#MD5SUMS[0]} -ne 32 -o \
-    ${#MD5SUMS[1]} -ne 32 ] && {
-    ############################################################################
-    # NOTE: OF COURSE THIS SHOULD NEVER HAPPEN!                                #
-    ############################################################################
-    echo -e "${ERR}error${RST}!" 1>&3
-    echo "${FUNCNAME}(): error between lines $[${LINENO}-12]-$[${LINENO}-9]!" 1>&2
-    return ${RET_ERROR}
-  }
-  [ "x${MD5SUMS[0]}" = "x${MD5SUMS[1]}" ] && {
-    ############################################################################
-    # SINCE BOTH MD5'S ARE THE SAME, WE RANDOMIZE WHICH ONE TO PRINT=)         #
-    ############################################################################
-    echo -e "${HL}match${RST}!\n    MD5 checksum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
-  } || {
-    echo -e "${ERR}mismatch${RST}!" 1>&3
-    return ${RET_FAILED}
-  }
+  md5_verify
   gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}" || return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
