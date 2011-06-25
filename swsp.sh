@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Apr 25
+# modified:	2011 Jun 25
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -121,6 +121,7 @@
 # OFFICIAL MIRRORS IN FINLAND (8.8.2006)                                       #
 ################################################################################
 declare -ra MIRRORS=(
+  'http://ftp.belnet.be/packages/slackware/'
   'ftp://elektroni.phys.tut.fi/'
   'ftp://ftp.funet.fi/pub/mirrors/ftp.slackware.com/pub/'
   'ftp://openbsd.fi/slackware/'
@@ -133,7 +134,8 @@ declare -r  UMASK="077"
 declare -r  GPG_KEYRING="trustedkeys.gpg"
 # 2.1.2011: use slackware.osuosl.org, the "another primary FTP site"
 #declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
-declare -r  MAIN_MIRROR="ftp://slackware.osuosl.org/pub/slackware"
+#declare -r  MAIN_MIRROR="ftp://slackware.osuosl.org/pub/slackware"
+declare -r  MAIN_MIRROR="http://ftp.belnet.be/packages/slackware"
 ################################################################################
 # 20.3.2008: static error codes                                                #
 ################################################################################
@@ -157,7 +159,7 @@ declare     CHECKSUMS_VERIFIED=false
 declare USE_SYSLOG=1
 declare SHOW_DESCRIPTION=1
 # TODO: rename variable
-declare PRINT_WGET_OUTPUT=0
+declare PRINT_WGET_OUTPUT=1
 declare KERNEL_UPGRADE=0
 declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
@@ -267,6 +269,7 @@ function get_file() {
   local -i RET=0
   local -i BYTES=0
   local -i WGET_RET=0
+  local -a TIMESTAMPS
 
   #print_stack
 
@@ -287,8 +290,9 @@ function get_file() {
   ##############################################################################
 
   case "${PROTO}" in
-    "ftp")
+    "ftp"|"http")
       echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
+      [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
       ##########################################################################
       # wget(1):                                                               #
       # When running Wget with -N, with or without -r, the decision as to      #
@@ -297,10 +301,16 @@ function get_file() {
       ##########################################################################
       wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
       WGET_RET=${?}
+      TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
       if [ ${WGET_RET} -eq 0 ]
       then
-	BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
-	echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
+	# detect whether we downloaded anything
+	[ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ] && {
+          echo "  server file no newer than local file" 1>&3
+        } || {
+	  BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
+	  echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
+        }
       else
 	echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
 	RET=${RET_FAILED}
@@ -756,6 +766,7 @@ function security_update()
     "FILE_LIST")
       echo "${FUNCNAME}(): please wait..." 1>&3
       # 21.8.2009: TODO: fix (to use) FTP_PATH_SUFFIX                          #
+      # 26.6.2011: TODO: verify FILE_LIST from CHECKSUMS!
       get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/FILE_LIST"
       echo -en "reading packages from \`${HL}FILE_LIST${RST}'..." 1>&3
       while read -a REPLY
