@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Jun 25
+# modified:	2011 Jul 25
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -15,6 +15,7 @@
 #   - sed                                                                      #
 #                                                                              #
 #  tested with (at least) the following slackware versions:                    #
+#    - 13.37                                                                   #
 #    - 13.1                                                                    #
 #    - 12.2                                                                    #
 #                                                                              #
@@ -110,11 +111,6 @@
   echo    "       you can bypass this check by commenting out lines $[${LINENO}-2]-$[${LINENO}+2]." 1>&2
   exit 1
 }
-# l.  The shell now has the notion of a `compatibility level', controlled by
-#     new variables settable by `shopt'.  Setting this variable currently
-#     restores the bash-3.1 behavior when processing quoted strings on the rhs
-#     of the `=~' operator to the `[[' command.
-#
 # we need this to stay compatible with different versions of slackware!
 [ ${BASH_VERSINFO[0]} -eq 4 ] && shopt -s compat31
 ################################################################################
@@ -167,6 +163,7 @@ declare KERNEL_UPGRADE=0
 declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
 declare MONOCHROME=0
+declare SKIP_VERSION_TEST=0
 # /BOOLEANS
 
 export PATH="/bin:/usr/bin:/sbin"
@@ -228,13 +225,13 @@ version_checker() {
     char=`echo $ver1 | sed 's/.*\([^0123456789.]\).*/\1/'`
     char_dec=`echo -n "$char" | od -b | head -1 | awk {'print $2'}`
     ver1=`echo $ver1 | sed "s/$char/.$char_dec/g"`
-  done	
+  done
   local ver2=$2
   while [ `echo $ver2 | egrep -c [^0123456789.]` -gt 0 ]; do
     char=`echo $ver2 | sed 's/.*\([^0123456789.]\).*/\1/'`
     char_dec=`echo -n "$char" | od -b | head -1 | awk {'print $2'}`
     ver2=`echo $ver2 | sed "s/$char/.$char_dec/g"`
-  done	
+  done
   ver1=`echo $ver1 | sed 's/\.\./.0/g'`
   ver2=`echo $ver2 | sed 's/\.\./.0/g'`
   do_version_check "$ver1" "$ver2"
@@ -263,10 +260,8 @@ function get_file() {
   # 20.3.2008: simplified this function                                        #
   #  5.4.2008: TODO: detect if we're called from a function, and apply the '  '#
   #                  prefix accordingly                                        #
-  # 25.6.2011: added support for downloading multiple files at once            #
-  #            TODO: should we check MD5s here?
   # input:                                                                     #
-  #   $* = url(s)_to_file                                                      #
+  #   $1 = url_to_file                                                         #
   # return                                                                     #
   #   0: ok                                                                    #
   #   1: failed (for any reason)                                               #
@@ -276,62 +271,58 @@ function get_file() {
   local -i WGET_RET=0
   local -a TIMESTAMPS
 
-  #print_stack
-  while [ -n "${1}" ]
-  do
+  [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
+    #            PROTO---   HOST---  DIR-  FILE---                             #
+    ############################################################################
+    local PROTO="${BASH_REMATCH[1]}"
+    local HOST="${BASH_REMATCH[2]}"
+    local DIR="${BASH_REMATCH[3]}"
+    local FILE="${BASH_REMATCH[4]}"
+  } || {
+    echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
+    return ${RET_FAILED}
+  }
 
-    [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
-      #            PROTO---   HOST---  DIR-  FILE---                             #
-      ############################################################################
-      local PROTO="${BASH_REMATCH[1]}"
-      local HOST="${BASH_REMATCH[2]}"
-      local DIR="${BASH_REMATCH[3]}"
-      local FILE="${BASH_REMATCH[4]}"
-    } || {
-      echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
-      return ${RET_FAILED}
-    }
+  ##############################################################################
+  # NOTE: ADD FILE://                                                          #
+  ##############################################################################
 
-    ##############################################################################
-    # NOTE: ADD FILE://                                                          #
-    ##############################################################################
-
-    case "${PROTO}" in
-      "ftp"|"http")
-	TIMESTAMPS=()
-        echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
-        [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
-        ##########################################################################
-        # wget(1):                                                               #
-        # When running Wget with -N, with or without -r, the decision as to      #
-        # whether or not to download a newer copy of a file depends on the local #
-        # and remote timestamp and size of the file.                             #
-        ##########################################################################
-        wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
-        WGET_RET=${?}
-        TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
-        if [ ${WGET_RET} -eq 0 ]
-        then
-          # detect whether we downloaded anything
-          [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ] && {
-            echo "  server file no newer than local file" 1>&3
-          } || {
-            BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
-            echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
-          }
-        else
-          echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
-          RET=${RET_FAILED}
-        fi
-      ;;
-      *)
-        echo "${FUNCNAME}(): error: invalid protocol \`${PROTO}' -- only ftp currently supported!" 1>&2
+  case "${PROTO}" in
+    # TODO: https
+    "ftp"|"http")
+      TIMESTAMPS=()
+      echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
+      [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      ##########################################################################
+      # wget(1):                                                               #
+      # When running Wget with -N, with or without -r, the decision as to      #
+      # whether or not to download a newer copy of a file depends on the local #
+      # and remote timestamp and size of the file.                             #
+      ##########################################################################
+      # TODO: use --cut-dirs with wget
+      wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
+      WGET_RET=${?}
+      TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      if [ ${WGET_RET} -eq 0 ]
+      then
+        # detect whether we downloaded anything
+        [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ] && {
+          echo "  server file no newer than local file" 1>&3
+        } || {
+          BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
+          echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
+        }
+      else
+        echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
         RET=${RET_FAILED}
-      ;;
-    esac # case ${PROTO}
+      fi
+    ;;
+    *)
+      echo "${FUNCNAME}(): error: invalid protocol \`${PROTO}' -- only http & ftp currently supported!" 1>&2
+      RET=${RET_FAILED}
+    ;;
+  esac # case ${PROTO}
 
-    shift 1
-  done
   return ${RET}
 } # get_file()
 ################################################################################
@@ -352,18 +343,29 @@ function md5_verify() {
   # $1 = how to find it in CHECKSUMS.md5
   # $2 = the actual file to verify
   #
-  # currently, can only return $RET_FAILED
+  # return:
+  #   $RET_FAILED
+  #   $RET_FERROR if CHECKSUMS.md5 can't be verified
   # 25.6.2011: TODO: change the SIGFILE_BASENAME variable name
   local -a MD5SUMS
-  local    SIGFILE
-  local    SIGFILE_BASENAME
-  local SIGFILE="${1}"
-  local SIGFILE_BASENAME="${2}"
+  local    SIGFILE="${1}"
+  local    SIGFILE_BASENAME="${2}"
+  local -i RET
 
-  [ ! -f "${WORK_DIR}/CHECKSUMS.md5" -o ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ] && {
-    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 or CHECKSUMS.md5.asc missing!" 1>&2
-    return ${RET_FAILED}
-  }
+  # few checks
+  if [ ! -f "${WORK_DIR}/CHECKSUMS.md5" ]
+  then
+    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5" || {
+      echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 missing and failed to download!" 1>&2
+      return ${RET_FERROR}
+    }
+  elif [ ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ]
+  then
+    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5" || {
+      echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc missing and failed to download!" 1>&2
+      return ${RET_FERROR}
+    }
+  fi
   [ ! -f "${WORK_DIR}/${SIGFILE_BASENAME}" ] && {
     echo "  ${FUNCNAME}(): error: file \`${SIGFILE_BASENAME}' does not exist!" 1>&2
     return ${RET_FAILED}
@@ -377,9 +379,10 @@ function md5_verify() {
     ${CHECKSUMS_VERIFIED} || \
     gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
   then
-    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
+    #echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
     CHECKSUMS_VERIFIED=true
   else
+    echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
     return ${RET_FERROR}
   fi
 
@@ -412,10 +415,12 @@ function md5_verify() {
     # SINCE BOTH MD5'S ARE THE SAME, WE RANDOMIZE WHICH ONE TO PRINT=)         #
     ############################################################################
     echo -e "${HL}match${RST}!\n    MD5 checksum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
+    RET=${RET_OK}
   } || {
     echo -e "${ERR}mismatch${RST}!" 1>&3
-    return ${RET_FAILED}
+    RET=${RET_FAILED}
   }
+  return ${RET}
 } # md5_verify
 ################################################################################
 function gpg_verify() {
@@ -497,7 +502,7 @@ function verify_package() {
   local    SIGFILE="${1}.asc"
   local    SIGFILE_BASENAME="${SIGFILE##*/}"
 
-  echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
+  #echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
 
   # can't verify this package at all? return RET_ERROR and go on to the next p #
   [ -f "${WORK_DIR}/${SIGFILE_BASENAME}" ] || \
@@ -507,34 +512,34 @@ function verify_package() {
   # do we have the files, do they verify?                                      #
   # 11.10.2009: this is getting too complicated=)                              #
   # 25.6.2011: TODO: clean up!
-  if \
-    # we MUST have the files AND either of the two criterias true              #
-    [ -f "${WORK_DIR}/CHECKSUMS.md5" -a -f "${WORK_DIR}/CHECKSUMS.md5.asc" ] && \
-    (
-      ${CHECKSUMS_VERIFIED} || \
-      # in case the local files are borked                                     #
-      gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
-    )
-  then
-    # gpg_verify returned 0, or already verified                               #
-    echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (first row)" 1>&2
-    CHECKSUMS_VERIFIED=true
-  else
-    rm -f "${WORK_DIR}/CHECKSUMS.md5" "${WORK_DIR}/CHECKSUMS.md5.asc"
-    for FILE in "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
-    do
-      # no CHECKSUMS = no MD5s = no updates = FATAL ERROR!                     #
-      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}" || return ${RET_FERROR}
-    done
-    CHECKSUMS_VERIFIED=false
-  fi
+  #if \
+  #  # we MUST have the files AND either of the two criterias true              #
+  #  [ -f "${WORK_DIR}/CHECKSUMS.md5" -a -f "${WORK_DIR}/CHECKSUMS.md5.asc" ] && \
+  #  (
+  #    ${CHECKSUMS_VERIFIED} || \
+  #    # in case the local files are borked                                     #
+  #    gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
+  #  )
+  #then
+  #  # gpg_verify returned 0, or already verified                               #
+  #  echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (first row)" 1>&2
+  #  CHECKSUMS_VERIFIED=true
+  #else
+  #  rm -f "${WORK_DIR}/CHECKSUMS.md5" "${WORK_DIR}/CHECKSUMS.md5.asc"
+  #  for FILE in "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
+  #  do
+  #    # no CHECKSUMS = no MD5s = no updates = FATAL ERROR!                     #
+  #    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}" || return ${RET_FERROR}
+  #  done
+  #  CHECKSUMS_VERIFIED=false
+  #fi
 
   # are the files new enough?                                                  #
   if ! grep --quiet "${SIGFILE}$" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null
   then
     # no? get the new ones...                                                  #
     echo -e "  ${HL}notice${RST}: current \`CHECKSUMS.md5' doesn't include a hash for \`${SIGFILE_BASENAME%-*-*}', downloading a new copy"
-    rm -f "${WORK_DIR}/CHECKSUMS.md5" "${WORK_DIR}/CHECKSUMS.md5.asc"
+    rm -fv "${WORK_DIR}/CHECKSUMS.md5" "${WORK_DIR}/CHECKSUMS.md5.asc" 1>&5
     for FILE in "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
     do
       # no CHECKSUMS = no MD5s = no updates = FATAL ERROR!                     #
@@ -549,8 +554,6 @@ function verify_package() {
       return ${RET_ERROR}
     }
   fi
-
-  # </complicated>                                                             #
 
   md5_verify "${1}" "${1}"							|| return ${RET_FAILED}
   md5_verify "${SIGFILE}" "${SIGFILE}"						|| return ${RET_FAILED}
@@ -604,7 +607,7 @@ function upgrade_package_from_mirror() {
   ##############################################################################
   # NOTE: FIX ME!!! ADD LOCAL PACKAGE CHECK!                                   #
   ##############################################################################
-  [ -f "${WORK_DIR}/${PACKAGE}" ] && rm -f "${WORK_DIR}/${PACKAGE}"
+  [ -f "${WORK_DIR}/${PACKAGE}" ] && rm -fv "${WORK_DIR}/${PACKAGE}" 1>&5
   ##############################################################################
   # show package description if possible                                       #
   ##############################################################################
@@ -628,9 +631,9 @@ function upgrade_package_from_mirror() {
     }' "${WORK_DIR}/ChangeLog.txt"
   }
 
-  for ((I=0; I<=$[${#MIRRORS[*]}-1]; I++))
+  for ((I=0; I<$[${#MIRRORS[*]}]; I++))
   do
-    get_file "${MIRRORS[${I}]}/${FTP_PATH_SUFFIX}/${PACKAGE}" "${2}" || continue
+    get_file "${MIRRORS[${I}]}/${FTP_PATH_SUFFIX}/${PACKAGE}" || continue
     # 21.3.2008: here we go with the static return codes=)                     #
     # 21.8.2009: strip possible directories                                    #
     #echo "${FUNCNAME}(): DEBUG: PACKAGE=\"${PACKAGE}\" PACKAGE_BASENAME=\"${PACKAGE_BASENAME}\""
@@ -664,7 +667,7 @@ function upgrade_package_from_mirror() {
         #       SHOULD THIS MESSAGE BE REMOVED?!                               #
         ########################################################################
         echo -en "  ${ERR}error${RST}: package \`${HL}${1%-*-*-*}${RST}' is not authentic, removing it..." 1>&3
-        rm -f "${WORK_DIR}/${PACKAGE}.tgz" && echo -e "${HL}done${RST}!" 1>&3 || echo -e "${ERR}FAILED${RST}?!" 1>&3
+        rm -fv "${WORK_DIR}/${PACKAGE}.tgz" 1>&5 && echo -e "${HL}done${RST}!" 1>&3 || echo -e "${ERR}FAILED${RST}?!" 1>&3
         continue
       ;;
       ${RET_ERROR})  return ${RET_FAILED} ;;
@@ -738,6 +741,7 @@ function security_update()
   local    UPDATE
   local    UPDATE_BASENAME
   local    GLOB
+  local    FILE
   ##############################################################################
   # read all the (newest) available patches to -> PACKAGES[]                   #
   #                                                                            #
@@ -784,13 +788,20 @@ function security_update()
     "FILE_LIST")
       echo "${FUNCNAME}(): please wait..." 1>&3
       # 21.8.2009: TODO: fix (to use) FTP_PATH_SUFFIX                          #
-      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/FILE_LIST"
-      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5" "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5.asc"
+
+      # download the FILE_LIST and CHECKSUMS, so we can also verify the FILE_LIST
+      for FILE in "patches/FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
+      do
+        get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}"
+      done
       CHECKSUMS_VERIFIED=false
+      # verify the FILE_LIST first
       md5_verify "/patches/FILE_LIST" "FILE_LIST" || {
         return ${RET_FAILED}
       }
       echo -en "reading packages from \`${HL}FILE_LIST${RST}'..." 1>&3
+      # example line:
+      # -rw-r--r--  1 root root 20490788 2011-06-16 02:03 ./packages/seamonkey-2.1-i486-1_slack13.37.txz
       while read -a REPLY
       do
 	if [[ "${REPLY[7]}" =~ "^\./packages/(.+\.t[gx]z)$" ]]
@@ -903,6 +914,8 @@ EOF
       ############################################################################
       # check if the package is "blacklisted", something that you don't want to  #
       # upgrade with this script.                                                #
+      #                                                                          #
+      # TODO: include slackpkg's blacklist (/etc/slackpkg/blacklist)             #
       ############################################################################
       for BLACKLISTED in ${UPDATE_BLACKLIST[*]}
       do
@@ -920,31 +933,37 @@ EOF
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: skipping package \`${HL}${PKG_NAME}${RST}': revision = ${PKG_REV}!" 1>&2
         continue
       }
-      version_checker "${PKG_VERSION}" "${LOCAL_PKG_VERSION}"
-      case "${?}" in
-        ##########################################################################
-        # LOCAL > REMOTE                                                         #
-        ##########################################################################
-        9)
-          echo -e "${FUNCNAME}(): ${HL}notice${RST}: skipping package \`${HL}${PKG_NAME}${RST}' in favor of local version: ${HL}${LOCAL_PKG_VERSION}${RST} > ${PKG_VERSION}" 1>&3
-          continue
-        ;;
-        ##########################################################################
-        # LOCAL VERSION == REMOTE VERSION, WHAT ABOUT REVISION?                  #
-        ##########################################################################
-        10)
-          version_checker "${PKG_REV}" "${LOCAL_PKG_REV}"
-          ########################################################################
-          # LOCAL REV > REMOTE REV || LOCAL REV == REMOTE REV                    #
-          ########################################################################
-          [ ${?} -ne 11 ] && continue
-          UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
-        ;;
-        ##########################################################################
-        # LOCAL VERSION < REMOTE VERSION                                         #
-        ##########################################################################
-        11) UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}" ;;
-      esac
+      # if SKIP_VERSION_TEST is set and it's not the same exact version+revision,
+      # add it to the update list
+      (( ${SKIP_VERSION_TEST} )) && [ "${PKG_VERSION}-${PKG_REV}" != "${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ] && {
+        UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
+      } || {
+        version_checker "${PKG_VERSION}" "${LOCAL_PKG_VERSION}"
+        case "${?}" in
+          ##########################################################################
+          # LOCAL > REMOTE                                                         #
+          ##########################################################################
+          9)
+            echo -e "${FUNCNAME}(): ${HL}notice${RST}: skipping package \`${HL}${PKG_NAME}${RST}' in favor of local version: ${HL}${LOCAL_PKG_VERSION}${RST} > ${PKG_VERSION}" 1>&3
+            continue
+          ;;
+          ##########################################################################
+          # LOCAL VERSION == REMOTE VERSION, WHAT ABOUT REVISION?                  #
+          ##########################################################################
+          10)
+            version_checker "${PKG_REV}" "${LOCAL_PKG_REV}"
+            ########################################################################
+            # LOCAL REV > REMOTE REV || LOCAL REV == REMOTE REV                    #
+            ########################################################################
+            [ ${?} -ne 11 ] && continue
+            UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
+          ;;
+          ##########################################################################
+          # LOCAL VERSION < REMOTE VERSION                                         #
+          ##########################################################################
+          11) UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}" ;;
+        esac
+      }
     fi # if ${SELECT_UPDATES_INDIVIDUALLY}
   done # ((I=0; I<=$[${PACKAGES}-1]; I++))
   popd &>/dev/null
@@ -1068,7 +1087,7 @@ function read_packages_from_changelog() {
 
   awk --re-interval '/^patches\/packages\// {
     match($1, /^patches\/packages\/(.+)-([^-]+-[^-]+-[^-]+)\.t[gx]z:{0,1}.*$/, arr);
-    print "DEBUG: '${FUNCNAME}'(): "$1" -> "arr[1]" - "arr[2] > "/dev/stderr"
+    print "'"${FUNCNAME}"'(): DEBUG: "$1" -> "arr[1]" - "arr[2] > "/dev/stderr"
     # we only put the newest (topmost) entry in the array                      #
     if (!(arr[1] in packages)) packages[arr[1]] = arr[2]
   } END {
@@ -1144,8 +1163,12 @@ function check_for_updates() {
 ################################################################################
 function print_patch_stats() {
   # print_patch_stats() -- 9.8.2009                                            #
+  [ ! -f "${WORK_DIR}/ChangeLog.txt" ] && {
+    echo "${FUNCNAME}(): error: ChangeLog not available!" 1>&2
+    return ${RET_FAILED}
+  }
   local -i COUNT=`grep -c "^patches/packages/" "${WORK_DIR}/ChangeLog.txt"`
-  local -a PROGRAMS=(`sed -n 's/^patches\/packages\/\(.\+\)-[^-]\+-[^-]\+-[^-]\+\.tgz:\{0,1\}.*$/\1/p' "${WORK_DIR}/ChangeLog.txt" | sort | uniq`)
+  local -a PROGRAMS=(`sed -n 's/^patches\/packages\/\(.\+\)-[^-]\+-[^-]\+-[^-]\+\.t[gx]z:\{0,1\}.*$/\1/p' "${WORK_DIR}/ChangeLog.txt" | sort | uniq`)
   local    PROGRAM
   local -i PATCH_COUNT
   echo "${COUNT} patches:"
@@ -1153,7 +1176,7 @@ function print_patch_stats() {
     echo "program|patches|percent"
     for PROGRAM in ${PROGRAMS[*]}
     do
-      PATCH_COUNT=`grep -c "^patches/packages/${PROGRAM}-[^-]\+-[^-]\+-[^-]\+\.tgz:\{0,1\}.*$" "${WORK_DIR}/ChangeLog.txt"`
+      PATCH_COUNT=`grep -c "^patches/packages/${PROGRAM}-[^-]\+-[^-]\+-[^-]\+\.t[gx]z:\{0,1\}.*$" "${WORK_DIR}/ChangeLog.txt"`
       echo "${PROGRAM}|${PATCH_COUNT}|$[${PATCH_COUNT}*100/${COUNT}]%"
     done
   } | column -t -s '|'
@@ -1229,6 +1252,7 @@ function usage() {
 	    -i   prompt on every package (interactive)
 	    -m	 monochrome mode
 	    -n   non-verbose mode
+	    -S   skip the version comparison tests
 	    -x	 debug mode
 EOF
   return ${?}
@@ -1365,6 +1389,7 @@ function fetch_and_import_PGP_key() {
 } # fetch_and_import_PGP_key()
 ################################################################################
 function print_stack() {
+  # this is a debug function that can be called from other functions           #
   local -i I
   echo "${FUNCNAME}(): execution call stack:"
   for ((I=0; I<${#FUNCNAME[*]}; I++))
@@ -1391,7 +1416,7 @@ exec 4>/dev/null
 ################################################################################
 # FIRST PROCESS THE PARAMETERS...                                              #
 ################################################################################
-while getopts ":df:hiHlmnpPsuUx" OPTION
+while getopts ":df:hiHlmnpPsSuUx" OPTION
 do
   case "${OPTION}" in
     "d") DRY_RUN=1 ACTION="update"	;;
@@ -1413,6 +1438,7 @@ do
       exit 0
     ;;
     "s") ACTION="print_stats"	;;
+    "S") SKIP_VERSION_TEST=1	;;
     "u") ACTION="update"	;;
     "U") ACTION="check_updates"	;;
     "x") set -x			;;
