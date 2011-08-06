@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Jul 25
+# modified:	2011 Aug 06
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -129,9 +129,9 @@ declare -ra UPDATE_BLACKLIST=("bash")
 declare -r  UMASK="077"
 declare -r  GPG_KEYRING="trustedkeys.gpg"
 # 2.1.2011: use slackware.osuosl.org, the "another primary FTP site"
-#declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
+declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
 #declare -r  MAIN_MIRROR="ftp://slackware.osuosl.org/pub/slackware"
-declare -r  MAIN_MIRROR="http://ftp.belnet.be/packages/slackware"
+#declare -r  MAIN_MIRROR="http://ftp.belnet.be/packages/slackware"
 ################################################################################
 # 20.3.2008: static error codes                                                #
 ################################################################################
@@ -153,6 +153,7 @@ declare -a  UPGRADED_PACKAGES
 declare -a  FAILED_PACKAGES
 declare     ACTION=
 declare     CHECKSUMS_VERIFIED=false
+declare -r  YEAR=`date +%Y`
 
 # BOOLEANS
 declare USE_SYSLOG=1
@@ -455,11 +456,11 @@ function gpg_verify() {
   if [ ! -f "${FILE_TO_VERIFY}" ]
   then
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: file \`${FILE_TO_VERIFY}' does not exist!" 1>&2
-    return 1
+    return ${RET_FAILED}
   elif [ ! -f "${SIGFILE}" ]
   then
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: sigfile \`${SIGFILE}' does not exist!" 1>&2
-    return 1
+    return ${RET_FAILED}
   fi
   echo -en "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP..." 1>&3
   ##############################################################################
@@ -561,6 +562,7 @@ function verify_package() {
   return ${RET_OK}
 } # verify_package()
 ################################################################################
+# TODO: this function is not currently used at all...
 function print_update_description() {
   ##############################################################################
   # TODO: this could/should be done with just plain awk                        #
@@ -568,7 +570,7 @@ function print_update_description() {
   local    PACKAGE_NAME
   local -i J
   local    AWK_SEARCH
-  grep -q "patches/packages/${1//./\.}\.tgz" "${WORK_DIR}/ChangeLog.txt" || return 1
+  grep -q "patches/packages/${1//./\.}\.tgz" "${WORK_DIR}/ChangeLog.txt" || return ${RET_FAILED}
   PACKAGE_NAME=${1%-*-*-*}
   echo -en "  +-[ ${HL}${PACKAGE_NAME}${RST} ]"
   [ ${COLUMNS} -lt 83 ] && local K=$[83-${COLUMNS}]
@@ -642,13 +644,15 @@ function upgrade_package_from_mirror() {
       ${RET_OK})
         # dry-run first to check for any problems
 	echo -n $'  dry-run:\n    ' 1>&3
-	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return 1
+	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return ${RET_FAILED}
 	(( ${DRY_RUN} )) && {
 	  return ${RET_OK}
 	} || {
           echo -e "  ${HL}notice${RST}: logging the upgrade process to \`${WORK_DIR}/${PACKAGE_BASENAME}.log'." 1>&3
           echo -en "  upgrading package..." 1>&3
-	  upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" &> "${WORK_DIR}/${PACKAGE_BASENAME}.log" && {
+	  #upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" &> "${WORK_DIR}/${PACKAGE_BASENAME}.log" && {
+	  upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" | tee "${WORK_DIR}/${PACKAGE_BASENAME}.log" 1>&5
+	  [ ${PIPESTATUS[0]} -eq 0 ] && {
             echo -e "${HL}ok${RST}!" 1>&3
             ####################################################################
 	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
@@ -657,7 +661,7 @@ function upgrade_package_from_mirror() {
 	    return ${RET_OK}
           } || {
 	    echo -e "${ERR}FAILED${RST}, check the log in \`${HL}${WORK_DIR}/${PACKAGE_BASENAME}.log${RST}'!" 1>&3
-            return 1
+            return ${RET_FAILED}
           }
         }
       ;;
@@ -678,7 +682,7 @@ function upgrade_package_from_mirror() {
   ##############################################################################
   # IF WE GOT THIS FAR, IT MEANS SOMETHING WEN'T WRONG!                        #
   ##############################################################################
-  return 1
+  return ${RET_FAILED}
 } # upgrade_package_from_mirror()
 ################################################################################
 function architecture_check() {
@@ -713,6 +717,41 @@ function architecture_check() {
 
   return ${RET_ERROR}
 } # architecture_check()
+################################################################################
+function find_ssa() {
+  # this function tries to find the SSA ID for package $1
+  local -a SSAS
+  local    SSA
+
+  # this means you haven't run the -a parameter, no worries, this is not that
+  # important
+  [ ! -d "${WORK_DIR}/advisories/${YEAR}" ] && return ${RET_FAILED}
+
+  [ ${#} -ne 1 -o -z "${1}" ] && {
+    echo "${FUNCNAME}(): parameter error!" 1>&2
+    return ${RET_ERROR}
+  }
+  SSAS=(`grep -l "${1}" "${WORK_DIR}/advisories/${YEAR}/SSA"*`)
+  if [ ${#SSAS[*]} -eq 0 ]
+  then
+    echo "${FUNCNAME}(): SSA ID not found." 1>&3
+    #echo "${FUNCNAME}(): DEBUG: \$1=${1}" 1>&2
+    return ${RET_FAILED}
+  elif [ ${#SSAS[*]} -gt 1 ]
+  then
+    echo "${FUNCNAME}(): warning: more than one SSA ID found." 1>&2
+    return ${RET_FAILED}
+  elif [ ${#SSAS[*]} -eq 1 ]
+  then
+    [[ "${SSAS[0]}" =~ "^.+/(SSA:[0-9-]+)\.txt$" ]] && {
+      SSA="${BASH_REMATCH[1]}"
+      echo "${SSA}"
+      return ${RET_OK}
+    }
+  fi
+
+  return ${RET_FAILED}
+} # find_ssa()
 ################################################################################
 function security_update()
 {
@@ -750,23 +789,13 @@ function security_update()
   #     - ChangeLog migth only include a directory of patches                  #
   #       -> sw 12.2 Tue Aug 18 14:35:23 CDT 2009                              #
   #     - ftp directory listing should be recursive in case of directories     #
+  #       but we can't verify the list                                         #
   #     - FILE_LIST seems like the best option to go...                        #
+  #     - PACKAGES.TXT                                                         #
   #                                                                            #
   ##############################################################################
   echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${ARCH}${RST})" 1>&3
   case "${PKG_LIST_MODE}" in
-    "DISABLEDftp")
-      [[ "${MAIN_MIRROR}" =~ "^[a-z]+://([^/]+).+$" ]] && {
-        local HOST="${BASH_REMATCH[1]}"
-      } || {
-	echo "${FUNCNAME}(): error at line $[${LINENO}-3]!" 1>&2
-	return ${RET_FAILED}
-      }
-      echo -en "reading packages directly from ${HL}${HOST}${RST}..." 1>&3
-      wget --quiet --directory-prefix="${WORK_DIR}" --no-remove-listing "${MAIN_MIRROR}/${FTP_PATH_SUFFIX}/"
-      PACKAGES=(`awk '/\.t[gx]z\r$/{sub(/\.t[gx]z\r$/,"",$9);print$9}' "${WORK_DIR}/.listing"`)
-      rm "${WORK_DIR}/.listing" "${WORK_DIR}/index.html"
-    ;;
     ############################################################################
     # ChangeLog's advantage is that we get to print the security description   #
     ############################################################################
@@ -836,6 +865,10 @@ EOF
     echo -e "${HL}done${RST} (${HL}${#PACKAGES[*]}${RST} packages)!\n" 1>&3
   }
   pushd /var/log/packages &>/dev/null || return ${RET_FAILED}
+
+  # update the advisory cache
+  update_advisories
+
   ##############################################################################
   # PROCESS THE LIST BEFORE ACTUAL UPGRADE                                     #
   ##############################################################################
@@ -955,6 +988,7 @@ EOF
             ########################################################################
             # LOCAL REV > REMOTE REV || LOCAL REV == REMOTE REV                    #
             ########################################################################
+	    find_ssa "${PACKAGES[${I}]}"
             [ ${?} -ne 11 ] && continue
             UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
           ;;
@@ -1077,7 +1111,7 @@ function read_packages_from_changelog() {
   #                                                                            #
   [ ! -f "${WORK_DIR}/ChangeLog.txt" ] && {
     echo "${FUNCNAME}(): error: no such file \`${WORK_DIR}/ChangeLog.txt'!" 1>&2
-    return 1
+    return ${RET_FAILED}
   }
   # 9.8.2009: 12.2 ChangeLog: "patches/packages/gnutls-2.6.2-i486-2_slack12.2.tgz"
   #           hence :{0,1} in regexp                                           #
@@ -1117,7 +1151,7 @@ function list_updates() {
     echo "${FUNCNAME}(): error: an error occurred at line $[${LINENO}-2] while wgetting the changelog!" 1>&2
     return ${RET_FAILED}
   }
-  PACKAGES=(`read_packages_from_changelog`) || return 1
+  PACKAGES=(`read_packages_from_changelog`) || return ${RET_FAILED}
   for PACKAGE in ${PACKAGES[*]}
   do
     PKG_NAME="${PACKAGE%-*-*-*}"
@@ -1236,6 +1270,7 @@ function usage() {
 	usage: ${0} [ACTION] [OPTIONS]
 
 	  actions:
+	    -a   update SSA cache
 	    -d	 dry-run
 	    -h	 this help
 	    -H   show upgrade history
@@ -1396,8 +1431,46 @@ function print_stack() {
   do
     echo "  ${I}: ${FUNCNAME[${I}]} called from line ${BASH_LINENO[${I}]}"
   done
-  return 0
+  return ${RET_OK}
 }
+################################################################################
+function update_advisories() {
+  # this function updates our Slackware security advisory cache from
+  # www.slackware.com. (if you know of a better way than the web interface, let
+  # me know.)
+  local    URL="http://www.slackware.com/security/list.php?l=slackware-security&y=${YEAR}"
+  #local -i OLD_COUNT
+  local -i NEW_COUNT=0
+  local    DATE
+  local    ID
+  local    PACKAGE
+  local    SSA
+  [ ! -d "${WORK_DIR}/advisories/${YEAR}" ] && mkdir -pv "${WORK_DIR}/advisories/${YEAR}"
+  echo "${FUNCNAME}(): updating Slackware security advisories..."
+  wget --quiet --output-document=- "${URL}" | sed -n 's/^.\+\([0-9]\{4\}-[0-9]\+-[0-9]\+\).\+\(slackware-security\.[0-9]\+\).\+\s\+\(.\+\)\s\+(\(SSA:[0-9-]\+\).\+$/\1 \2 \3 \4/p' 1>"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
+  while read DATE ID PACKAGE SSA
+  do
+    #echo "${DATE} - ${ID} - ${PACKAGE} - ${SSA}"
+    #echo "  ${SSA}"
+    URL="http://www.slackware.com/security/viewer.php?l=slackware-security&y=${YEAR}&m=${ID}"
+    [ ! -f "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" -o \
+      ! -s "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" ] && {
+      wget --quiet --output-document=- "${URL}" | \
+	awk '/^-----BEGIN PGP SIGNED MESSAGE-----$/,/^-----END PGP SIGNATURE-----$/{print}' 1>"${WORK_DIR}/advisories/${YEAR}/${SSA}.txt"
+      ((NEW_COUNT++))
+    }
+  done 0<"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
+
+  if [ ${NEW_COUNT} -gt 0 ]
+  then
+    echo -e "${FUNCNAME}(): ${HL}${NEW_COUNT}${RST} new advisories" 1>&3
+  elif [ ${NEW_COUNT} -eq 0 ]
+  then
+    echo "${FUNCNAME}(): no new advisories available" 1>&3
+  fi
+
+  return 0
+} # update_advisories()
 ################################################################################
 [ ${#} -eq 0 ] && {
   usage
@@ -1416,9 +1489,10 @@ exec 4>/dev/null
 ################################################################################
 # FIRST PROCESS THE PARAMETERS...                                              #
 ################################################################################
-while getopts ":df:hiHlmnpPsSuUx" OPTION
+while getopts ":adf:hiHlmnpPsSuUx" OPTION
 do
   case "${OPTION}" in
+    "a") ACTION="advisories"		;;
     "d") DRY_RUN=1 ACTION="update"	;;
     "f") PKG_LIST_MODE="${OPTARG}"	;;
     "h") ACTION="usage"			;;
@@ -1461,6 +1535,7 @@ sanity_checks || exit ${RET_FAILED}
 # ...THEN DECIDE WHAT TO DO!                                                   #
 ################################################################################
 case "${ACTION}" in
+  "advisories")    update_advisories          ;;
   "check_updates") check_for_updates          ;;
   "history")       show_upgrade_history       ;;
   "list_updates")  list_updates               ;;
