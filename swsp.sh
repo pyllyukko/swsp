@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Aug 06
+# modified:	2011 Aug 07
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -734,12 +734,14 @@ function find_ssa() {
   SSAS=(`grep -l "${1}" "${WORK_DIR}/advisories/${YEAR}/SSA"*`)
   if [ ${#SSAS[*]} -eq 0 ]
   then
-    echo "${FUNCNAME}(): SSA ID not found." 1>&3
-    #echo "${FUNCNAME}(): DEBUG: \$1=${1}" 1>&2
+    # for some updates, there just isn't advisory available. see
+    # https://twitter.com/#!/volkerdi/status/85028087984685056 for an example=)
+
+    #echo "${FUNCNAME}(): SSA ID not found." 1>&3
     return ${RET_FAILED}
   elif [ ${#SSAS[*]} -gt 1 ]
   then
-    echo "${FUNCNAME}(): warning: more than one SSA ID found." 1>&2
+    echo "${FUNCNAME}(): warning: more than one SSA ID found for \`${1}'." 1>&2
     return ${RET_FAILED}
   elif [ ${#SSAS[*]} -eq 1 ]
   then
@@ -781,6 +783,7 @@ function security_update()
   local    UPDATE_BASENAME
   local    GLOB
   local    FILE
+  local    SSA_ID
   ##############################################################################
   # read all the (newest) available patches to -> PACKAGES[]                   #
   #                                                                            #
@@ -871,6 +874,8 @@ EOF
 
   ##############################################################################
   # PROCESS THE LIST BEFORE ACTUAL UPGRADE                                     #
+  #
+  # TODO: make this into it's own function!
   ##############################################################################
   echo -e "${FUNCNAME}(): processing packages" 1>&3
   for ((I=0; I<${#PACKAGES[*]}; I++))
@@ -911,9 +916,9 @@ EOF
       continue
     }
     split_package_name "${LOCAL_FILES[0]}" "LOCAL_PKG"
-      [ "x${PKG_NAME}" != "x${LOCAL_PKG_NAME}" ] && {
-        echo "${FUNCNAME}(): unknown error at line $[${LINENO}-2]!" 1>&2
-        continue
+    [ "x${PKG_NAME}" != "x${LOCAL_PKG_NAME}" ] && {
+      echo "${FUNCNAME}(): unknown error at line $[${LINENO}-2]!" 1>&2
+      continue
     }
     if (( ${SELECT_UPDATES_INDIVIDUALLY} ))
     then
@@ -966,11 +971,19 @@ EOF
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: skipping package \`${HL}${PKG_NAME}${RST}': revision = ${PKG_REV}!" 1>&2
         continue
       }
+
+      # exactly same version -> next
+      # no need to run version_checker().
+      # NOTE: we could also run updatepkg --dry-run here?
+      [ "x${PKG_VERSION}-${PKG_REV}" = "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ] && continue
+
       # if SKIP_VERSION_TEST is set and it's not the same exact version+revision,
       # add it to the update list
-      (( ${SKIP_VERSION_TEST} )) && [ "${PKG_VERSION}-${PKG_REV}" != "${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ] && {
+      if (( ${SKIP_VERSION_TEST} )) && \
+	[ "x${PKG_VERSION}-${PKG_REV}" != "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
+      then
         UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
-      } || {
+      else
         version_checker "${PKG_VERSION}" "${LOCAL_PKG_VERSION}"
         case "${?}" in
           ##########################################################################
@@ -988,7 +1001,6 @@ EOF
             ########################################################################
             # LOCAL REV > REMOTE REV || LOCAL REV == REMOTE REV                    #
             ########################################################################
-	    find_ssa "${PACKAGES[${I}]}"
             [ ${?} -ne 11 ] && continue
             UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
           ;;
@@ -997,7 +1009,7 @@ EOF
           ##########################################################################
           11) UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}" ;;
         esac
-      }
+      fi # if (( ${SKIP_VERSION_TEST} ))
     fi # if ${SELECT_UPDATES_INDIVIDUALLY}
   done # ((I=0; I<=$[${PACKAGES}-1]; I++))
   popd &>/dev/null
@@ -1026,6 +1038,14 @@ EOF
     UPDATE_BASENAME="${UPDATE##*/}"
     split_package_name "${UPDATE_BASENAME}" "PKG"
     echo -e "${HL}update${RST} [$[${I}+1]/${#UPDATES[*]}]: updating package ${HL}${PKG_NAME}${RST} to ${HL}${PKG_VERSION}${RST}-${HL}${PKG_REV}${RST}" 1>&3
+
+    # print the SSA ID, if it's available
+    # NOTE:
+    #   SSA ID's could be parsed during the pre-processing, but it would be
+    #   nice to use associative arrays for that. but if we use those, we break
+    #   the backwards compatibility.
+    SSA_ID=`find_ssa "${UPDATE}"`
+    [ -n "${SSA_ID}" ] && echo -e "  SSA ID: ${HL}${SSA_ID}${RST}" 1>&3
 
     # see if it might be a kernel update, so we can display a notice banner on the summary
     [[ "${PKG_NAME}" =~ "kernel" ]] && KERNEL_UPGRADE=1
