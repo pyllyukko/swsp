@@ -149,6 +149,8 @@ declare -r  SWSP="${0##*/}"
 ################################################################################
 declare     PKG_LIST_MODE="FILE_LIST"
 declare -a  PACKAGE
+# UPDATES[] is used by both process_packages() & security_update()
+declare -a  UPDATES=()
 declare -a  UPGRADED_PACKAGES
 declare -a  FAILED_PACKAGES
 declare     ACTION=
@@ -762,128 +764,26 @@ function find_ssa() {
   return ${RET_FAILED}
 } # find_ssa()
 ################################################################################
-function security_update()
-{
-  # security_update() function                                                 #
-  #                                                                            #
-  # possible return values: return RET_OK || RET_FAILED                        #
-  declare  FTP_PATH_SUFFIX="${SLACKWARE}-${VERSION}/patches/packages"
-  local -i RET=${RET_OK}
-  local -i I
-  local -a PACKAGES
-  local    PACKAGE_BASENAME
-  local -a LOCAL_FILES
-  local    MESSAGE
-
-  local    PKG_NAME
-  local    PKG_VERSION
-  local    PKG_ARCH
-  local    PKG_REV
-  local    LOCAL_PKG_NAME
-  local    LOCAL_PKG_VERSION
-  local    LOCAL_PKG_ARCH
-  local    LOCAL_PKG_REV
-
-  local    BLACKLISTED
-  local -a UPDATES=()
-  local    UPDATE
-  local    UPDATE_BASENAME
-  local    GLOB
-  local    FILE
-  local    SSA_ID
-  ##############################################################################
-  # read all the (newest) available patches to -> PACKAGES[]                   #
-  #                                                                            #
-  # 8.10.2009:                                                                 #
-  #   many ways on doing this                                                  #
-  #     - ChangeLog migth only include a directory of patches                  #
-  #       -> sw 12.2 Tue Aug 18 14:35:23 CDT 2009                              #
-  #     - ftp directory listing should be recursive in case of directories     #
-  #       but we can't verify the list                                         #
-  #     - FILE_LIST seems like the best option to go...                        #
-  #     - PACKAGES.TXT                                                         #
-  #                                                                            #
-  ##############################################################################
-  echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${MACHTYPE%%-*}${RST})" 1>&3
-  case "${PKG_LIST_MODE}" in
-    ############################################################################
-    # ChangeLog's advantage is that we get to print the security description   #
-    ############################################################################
-    "DISABLEDChangeLog")
-      echo "${FUNCNAME}(): please wait..." 1>&3
-      ##########################################################################
-      # replaced too complicated ncftpget thingie with wget --timestamping     #
-      # (10.9.2007)                                                            #
-      #                                                                        #
-      ##########################################################################
-      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/ChangeLog.txt"
-      [ ${?} -ne 0 ] && {
-        echo "${FUNCNAME}(): error: an error occurred at line $[${LINENO}-2] while wgetting the changelog!" 1>&2
-        return ${RET_FAILED}
-      }
-      echo -en "reading packages from \`${HL}ChangeLog.txt${RST}'..." 1>&3
-      PACKAGES=(`read_packages_from_changelog`) || return ${RET_FAILED}
-    ;;
-    "FILE_LIST")
-      echo "${FUNCNAME}(): please wait..." 1>&3
-      # 21.8.2009: TODO: fix (to use) FTP_PATH_SUFFIX                          #
-
-      # download the FILE_LIST and CHECKSUMS, so we can also verify the FILE_LIST
-      for FILE in "patches/FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
-      do
-        get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}"
-      done
-      CHECKSUMS_VERIFIED=false
-      # verify the FILE_LIST first
-      md5_verify "/patches/FILE_LIST" "FILE_LIST" || {
-        return ${RET_FAILED}
-      }
-      echo -en "reading packages from \`${HL}FILE_LIST${RST}'..." 1>&3
-      # example line:
-      # -rw-r--r--  1 root root 20490788 2011-06-16 02:03 ./packages/seamonkey-2.1-i486-1_slack13.37.txz
-      while read -a REPLY
-      do
-	if [[ "${REPLY[7]}" =~ "^\./packages/(.+\.t[gx]z)$" ]]
-	then
-          #echo "${FUNCNAME}(): DEBUG: ${REPLY[7]}"
-          PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
-	# detect kernel upgrade instructions from the file list
-	elif [[ "${REPLY[7]}" =~ "^\./(packages/linux-.+/README)$" ]]
-	then
-	  KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
-	fi
-      done 0<"${WORK_DIR}/FILE_LIST"
-    ;;
-    *)
-      echo "${FUNCNAME}(): error: invalid mode \`${PKG_LIST_MODE}'!"
-      return ${RET_FAILED}
-    ;;
-  esac # "${PKG_LIST_MODE}"
-  [ ${#PACKAGES[*]} -eq 0 ] && {
-    cat 0<<-EOF 1>&3
-	${ERR}failed${RST}!
-	  0 packages found, this could mean three things:
-	  a) there really is no security updates available
-	  - or -
-	  b) we couldn't access slackware's ftp
-	  - or -
-	  c) this script is broken
-EOF
-    # TODO: return OK or FAILED?
-    return ${RET_FAILED}
-  } || {
-    echo -e "${HL}done${RST} (${HL}${#PACKAGES[*]}${RST} packages)!\n" 1>&3
-  }
-  pushd /var/log/packages &>/dev/null || return ${RET_FAILED}
-
-  # update the advisory cache
-  update_advisories
-
+function process_packages() {
   ##############################################################################
   # PROCESS THE LIST BEFORE ACTUAL UPGRADE                                     #
   #
   # TODO: make this into it's own function!
   ##############################################################################
+  local -a PACKAGES=( ${*} )
+  local PACKAGE_BASENAME
+  local PKG_NAME
+  local PKG_VERSION
+  local PKG_ARCH
+  local LOCAL_PKG_NAME
+  local LOCAL_PKG_VERSION
+  local LOCAL_PKG_REV
+  local GLOB
+  local -a LOCAL_FILES
+  local BLACKLISTED
+
+  pushd /var/log/packages &>/dev/null || return ${RET_FAILED}
+
   echo -e "${FUNCNAME}(): processing packages" 1>&3
   for ((I=0; I<${#PACKAGES[*]}; I++))
   do
@@ -1019,8 +919,130 @@ EOF
       fi # if (( ${SKIP_VERSION_TEST} ))
     fi # if ${SELECT_UPDATES_INDIVIDUALLY}
   done # ((I=0; I<=$[${PACKAGES}-1]; I++))
+
   popd &>/dev/null
+
   echo -e "${FUNCNAME}(): done processing packages" 1>&3
+
+  return 0
+} # process_packages()
+
+function security_update()
+{
+  # security_update() function                                                 #
+  #                                                                            #
+  # possible return values: return RET_OK || RET_FAILED                        #
+  declare  FTP_PATH_SUFFIX="${SLACKWARE}-${VERSION}/patches/packages"
+  local -i RET=${RET_OK}
+  local -i I
+  local -a PACKAGES
+  local    PACKAGE_BASENAME
+  local -a LOCAL_FILES
+  local    MESSAGE
+
+  local    PKG_NAME
+  local    PKG_VERSION
+  local    PKG_ARCH
+  local    PKG_REV
+  local    LOCAL_PKG_NAME
+  local    LOCAL_PKG_VERSION
+  local    LOCAL_PKG_ARCH
+  local    LOCAL_PKG_REV
+
+  local    BLACKLISTED
+  #local -a UPDATES=()
+  local    UPDATE
+  local    UPDATE_BASENAME
+  local    GLOB
+  local    FILE
+  local    SSA_ID
+  ##############################################################################
+  # read all the (newest) available patches to -> PACKAGES[]                   #
+  #                                                                            #
+  # 8.10.2009:                                                                 #
+  #   many ways on doing this                                                  #
+  #     - ChangeLog migth only include a directory of patches                  #
+  #       -> sw 12.2 Tue Aug 18 14:35:23 CDT 2009                              #
+  #     - ftp directory listing should be recursive in case of directories     #
+  #       but we can't verify the list                                         #
+  #     - FILE_LIST seems like the best option to go...                        #
+  #     - PACKAGES.TXT                                                         #
+  #                                                                            #
+  ##############################################################################
+  echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${MACHTYPE%%-*}${RST})" 1>&3
+  case "${PKG_LIST_MODE}" in
+    ############################################################################
+    # ChangeLog's advantage is that we get to print the security description   #
+    ############################################################################
+    "DISABLEDChangeLog")
+      echo "${FUNCNAME}(): please wait..." 1>&3
+      ##########################################################################
+      # replaced too complicated ncftpget thingie with wget --timestamping     #
+      # (10.9.2007)                                                            #
+      #                                                                        #
+      ##########################################################################
+      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/ChangeLog.txt"
+      [ ${?} -ne 0 ] && {
+        echo "${FUNCNAME}(): error: an error occurred at line $[${LINENO}-2] while wgetting the changelog!" 1>&2
+        return ${RET_FAILED}
+      }
+      echo -en "reading packages from \`${HL}ChangeLog.txt${RST}'..." 1>&3
+      PACKAGES=(`read_packages_from_changelog`) || return ${RET_FAILED}
+    ;;
+    "FILE_LIST")
+      echo "${FUNCNAME}(): please wait..." 1>&3
+      # 21.8.2009: TODO: fix (to use) FTP_PATH_SUFFIX                          #
+
+      # download the FILE_LIST and CHECKSUMS, so we can also verify the FILE_LIST
+      for FILE in "patches/FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
+      do
+        get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}"
+      done
+      CHECKSUMS_VERIFIED=false
+      # verify the FILE_LIST first
+      md5_verify "/patches/FILE_LIST" "FILE_LIST" || {
+        return ${RET_FAILED}
+      }
+      echo -en "reading packages from \`${HL}FILE_LIST${RST}'..." 1>&3
+      # example line:
+      # -rw-r--r--  1 root root 20490788 2011-06-16 02:03 ./packages/seamonkey-2.1-i486-1_slack13.37.txz
+      while read -a REPLY
+      do
+	if [[ "${REPLY[7]}" =~ "^\./packages/(.+\.t[gx]z)$" ]]
+	then
+          #echo "${FUNCNAME}(): DEBUG: ${REPLY[7]}"
+          PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
+	# detect kernel upgrade instructions from the file list
+	elif [[ "${REPLY[7]}" =~ "^\./(packages/linux-.+/README)$" ]]
+	then
+	  KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
+	fi
+      done 0<"${WORK_DIR}/FILE_LIST"
+    ;;
+    *)
+      echo "${FUNCNAME}(): error: invalid mode \`${PKG_LIST_MODE}'!"
+      return ${RET_FAILED}
+    ;;
+  esac # "${PKG_LIST_MODE}"
+  [ ${#PACKAGES[*]} -eq 0 ] && {
+    cat 0<<-EOF 1>&3
+	${ERR}failed${RST}!
+	  0 packages found, this could mean three things:
+	  a) there really is no security updates available
+	  - or -
+	  b) we couldn't access slackware's ftp
+	  - or -
+	  c) this script is broken
+EOF
+    # TODO: return OK or FAILED?
+    return ${RET_FAILED}
+  } || {
+    echo -e "${HL}done${RST} (${HL}${#PACKAGES[*]}${RST} packages)!\n" 1>&3
+  }
+  # update the advisory cache
+  update_advisories
+
+  process_packages ${PACKAGES[*]}
 
   # print the list of packages before beginning
   [ ${#UPDATES[*]} -gt 0 ] && {
