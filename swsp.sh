@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Aug 07
+# modified:	2011 Oct 25
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -208,11 +208,16 @@ do
   register_prog "${PROGRAM}" || exit 1
 done
 declare COLUMNS="${COLUMNS:-`tput cols 2>/dev/null`}"
-declare ARCH=`uname -m`
+#declare ARCH=`uname -m`
 # TODO: we might get problems with backwards compability when slackware (32bit) upgrades to i686...
-case "${ARCH}" in
+#case "${ARCH}" in
+case "${MACHTYPE%%-*}" in
   "x86_64")	SLACKWARE="slackware64"	;;
-  *)		SLACKWARE="slackware"	;;
+  i?86)		SLACKWARE="slackware"	;;
+  *)
+    echo "error: couldn't determine architecture." 1>&2
+    exit 1
+  ;;
 esac
 declare VERSION=`sed 's/^.*[[:space:]]\([0-9]\+\.[0-9]\+\).*$/\1/' /etc/slackware-version 2>/dev/null`
 declare WORK_DIR="${WORK_DIR_ROOT}/${VERSION}"
@@ -293,6 +298,8 @@ function get_file() {
     "ftp"|"http")
       TIMESTAMPS=()
       echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
+      # if the file already exists, take the timestamp. we use this to detect
+      # if wget downloaded a newer file.
       [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
       ##########################################################################
       # wget(1):                                                               #
@@ -303,7 +310,7 @@ function get_file() {
       # TODO: use --cut-dirs with wget
       wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
       WGET_RET=${?}
-      TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
       if [ ${WGET_RET} -eq 0 ]
       then
         # detect whether we downloaded anything
@@ -319,7 +326,7 @@ function get_file() {
       fi
     ;;
     *)
-      echo "${FUNCNAME}(): error: invalid protocol \`${PROTO}' -- only http & ftp currently supported!" 1>&2
+      echo "${FUNCNAME}(): error: invalid protocol \`${PROTO}' -- only HTTP & FTP currently supported!" 1>&2
       RET=${RET_FAILED}
     ;;
   esac # case ${PROTO}
@@ -689,24 +696,24 @@ function architecture_check() {
   # $1 = machine architecture
   # $2 = package architecture
   # $3 = package name
-  [ ${#} -ne 3 ] && {
+  [ ${#} -ne 2 ] && {
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: wrong amount of parameters, this shouldn't happen!"
     return ${RET_ERROR}
   }
 
-  if [ "${2}" = "noarch" ]
+  if [ "${1}" = "noarch" ]
   then
     # package isn't architecture dependent (confs, docs, .php etc...)
     return ${RET_OK}
-  elif [ "${3}" = "kernel-headers" -a "${2}" = "x86" ]
+  elif [ "${2}" = "kernel-headers" -a "${1}" = "x86" ]
   then
-    # kernel headers (x86)
+    # kernel headers (x86) ... it's the same for x86 and x86_64 for some reason.
     return ${RET_OK}
-  elif [[ "${1}" =~ "^i.86$" && "${2}" =~ "^i.86$" ]]
+  elif [[ "${MACHTYPE%%-*}" =~ "^i.86$" && "${1}" =~ "^i.86$" ]]
   then
     # x86 architecture
     return ${RET_OK}
-  elif [ "${1}" = "x86_64" -a "${2}" = "x86_64" ]
+  elif [ "${MACHTYPE%%-*}" = "x86_64" -a "${1}" = "x86_64" ]
   then
     # x86_64 architecture
     return ${RET_OK}
@@ -797,7 +804,7 @@ function security_update()
   #     - PACKAGES.TXT                                                         #
   #                                                                            #
   ##############################################################################
-  echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${ARCH}${RST})" 1>&3
+  echo -e "${FUNCNAME}(): detected Slackware version: ${HL}${SLACKWARE}${RST}-${HL}${VERSION}${RST} (${HL}${MACHTYPE%%-*}${RST})" 1>&3
   case "${PKG_LIST_MODE}" in
     ############################################################################
     # ChangeLog's advantage is that we get to print the security description   #
@@ -887,8 +894,8 @@ EOF
       continue
     }
     # check if the package is of correct architecture
-    architecture_check "${ARCH}" "${PKG_ARCH}" "${PKG_NAME}" || {
-      echo -e "${FUNCNAME}(): ${WRN}warning${RST}: package \`${PACKAGE_BASENAME}' failed the architecture check (${PKG_ARCH} vs. ${ARCH}), skipping!"
+    architecture_check "${PKG_ARCH}" "${PKG_NAME}" || {
+      echo -e "${FUNCNAME}(): ${WRN}warning${RST}: package \`${PACKAGE_BASENAME}' failed the architecture check (${PKG_ARCH} vs. ${MACHTYPE%%-*}), skipping!"
       continue
     }
     ############################################################################
@@ -1483,7 +1490,7 @@ function update_advisories() {
 
   if [ ${NEW_COUNT} -gt 0 ]
   then
-    echo -e "${FUNCNAME}(): ${HL}${NEW_COUNT}${RST} new advisories" 1>&3
+    echo -e "${FUNCNAME}(): ${HL}${NEW_COUNT}${RST} new advisorie(s)" 1>&3
   elif [ ${NEW_COUNT} -eq 0 ]
   then
     echo "${FUNCNAME}(): no new advisories available" 1>&3
