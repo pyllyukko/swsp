@@ -66,6 +66,7 @@
 #   - 23.4.2011: option switch that skips the version comparisons
 #   - 25.4.2011: break the script down with functions, so the main function
 #                and loops look cleaner
+#     - constructing PACKAGES[] from security_update() to it's own function    #
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -149,7 +150,8 @@ declare -r  SWSP="${0##*/}"
 ################################################################################
 declare     PKG_LIST_MODE="FILE_LIST"
 declare -a  PACKAGE
-# UPDATES[] is used by both process_packages() & security_update()
+# UPDATES[] is used by process_packages(), security_update() &
+# print_upgrade_summary() functions
 declare -a  UPDATES=()
 declare -a  UPGRADED_PACKAGES
 declare -a  FAILED_PACKAGES
@@ -767,20 +769,18 @@ function find_ssa() {
 function process_packages() {
   ##############################################################################
   # PROCESS THE LIST BEFORE ACTUAL UPGRADE                                     #
-  #
-  # TODO: make this into it's own function!
   ##############################################################################
   local -a PACKAGES=( ${*} )
-  local PACKAGE_BASENAME
-  local PKG_NAME
-  local PKG_VERSION
-  local PKG_ARCH
-  local LOCAL_PKG_NAME
-  local LOCAL_PKG_VERSION
-  local LOCAL_PKG_REV
-  local GLOB
+  local    PACKAGE_BASENAME
+  local    PKG_NAME
+  local    PKG_VERSION
+  local    PKG_ARCH
+  local    LOCAL_PKG_NAME
+  local    LOCAL_PKG_VERSION
+  local    LOCAL_PKG_REV
+  local    GLOB
   local -a LOCAL_FILES
-  local BLACKLISTED
+  local    BLACKLISTED
 
   pushd /var/log/packages &>/dev/null || return ${RET_FAILED}
 
@@ -926,7 +926,43 @@ function process_packages() {
 
   return 0
 } # process_packages()
+################################################################################
+function print_upgrade_summary() {
+  local -i I
+  local -i J
 
+  # print a list of upgraded packages
+  echo $'\nsummary:'
+  echo -e "  [${HL}${#UPGRADED_PACKAGES[*]}${RST}/${#UPDATES[*]}] package(s) upgraded:"
+  for ((
+    I=0, J=1;
+    I<${#UPGRADED_PACKAGES[*]};
+    I++, J=I+1
+  ))
+  do
+    # FIX ME!                                                                  #
+    #echo "    ${J}: upgraded package ${PACKAGE[0]} to ${PACKAGE[1]}-${PACKAGE[3]}"
+    #split_package_name "${UPGRADED_PACKAGES[${I}]}" "PKG"
+    echo "    ${J}: upgraded ${UPGRADED_PACKAGES[${I}]}"
+  done
+
+  # if there were packages that failed to upgrade, print a list
+  [ "${#FAILED_PACKAGES[*]}" -ne 0 ] && {
+    echo -n $'\n'
+    echo -e "  [${HL}${#FAILED_PACKAGES[*]}${RST}/${#UPDATES[*]}] package(s) ${ERR}failed${RST} to upgrade:"
+    for ((
+      I=0, J=1;
+      I<${#FAILED_PACKAGES[*]};
+      I++, J=I+1
+    ))
+    do
+      echo "    ${J}: ${FAILED_PACKAGES[${I}]}"
+    done
+  }
+
+  return 0
+} # print_upgrade_summary()
+################################################################################
 function security_update()
 {
   # security_update() function                                                 #
@@ -937,7 +973,6 @@ function security_update()
   local -i I
   local -a PACKAGES
   local    PACKAGE_BASENAME
-  local -a LOCAL_FILES
   local    MESSAGE
 
   local    PKG_NAME
@@ -949,11 +984,9 @@ function security_update()
   local    LOCAL_PKG_ARCH
   local    LOCAL_PKG_REV
 
-  local    BLACKLISTED
   #local -a UPDATES=()
   local    UPDATE
   local    UPDATE_BASENAME
-  local    GLOB
   local    FILE
   local    SSA_ID
   ##############################################################################
@@ -1024,7 +1057,8 @@ function security_update()
       return ${RET_FAILED}
     ;;
   esac # "${PKG_LIST_MODE}"
-  [ ${#PACKAGES[*]} -eq 0 ] && {
+  if [ ${#PACKAGES[*]} -eq 0 ]
+  then
     cat 0<<-EOF 1>&3
 	${ERR}failed${RST}!
 	  0 packages found, this could mean three things:
@@ -1036,9 +1070,9 @@ function security_update()
 EOF
     # TODO: return OK or FAILED?
     return ${RET_FAILED}
-  } || {
+  else
     echo -e "${HL}done${RST} (${HL}${#PACKAGES[*]}${RST} packages)!\n" 1>&3
-  }
+  fi
   # update the advisory cache
   update_advisories
 
@@ -1113,34 +1147,7 @@ EOF
 
   ##############################################################################
 
-  # print a list of upgraded packages
-  echo $'\nsummary:'
-  echo -e "  [${HL}${#UPGRADED_PACKAGES[*]}${RST}/${#UPDATES[*]}] package(s) upgraded:"
-  for ((
-    I=0, J=1;
-    I<${#UPGRADED_PACKAGES[*]};
-    I++, J=I+1
-  ))
-  do
-    # FIX ME!                                                                  #
-    #echo "    ${J}: upgraded package ${PACKAGE[0]} to ${PACKAGE[1]}-${PACKAGE[3]}"
-    #split_package_name "${UPGRADED_PACKAGES[${I}]}" "PKG"
-    echo "    ${J}: upgraded ${UPGRADED_PACKAGES[${I}]}"
-  done
-
-  # if there were packages that failed to upgrade, print a list
-  [ "${#FAILED_PACKAGES[*]}" -ne 0 ] && {
-    echo -n $'\n'
-    echo -e "  [${HL}${#FAILED_PACKAGES[*]}${RST}/${#UPDATES[*]}] package(s) ${ERR}failed${RST} to upgrade:"
-    for ((
-      I=0, J=1;
-      I<${#FAILED_PACKAGES[*]};
-      I++, J=I+1
-    ))
-    do
-      echo "    ${J}: ${FAILED_PACKAGES[${I}]}"
-    done
-  }
+  print_upgrade_summary
 
   return ${RET}
 } # security_update()
