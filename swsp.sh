@@ -656,25 +656,27 @@ function upgrade_package_from_mirror() {
         # dry-run first to check for any problems
 	echo -n $'  dry-run:\n    ' 1>&3
 	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return ${RET_FAILED}
-	(( ${DRY_RUN} )) && {
+	if (( ${DRY_RUN} ))
+	then
 	  return ${RET_OK}
-	} || {
+	else
           echo -e "  ${HL}notice${RST}: logging the upgrade process to \`${WORK_DIR}/${PACKAGE_BASENAME}.log'." 1>&3
           echo -en "  upgrading package..." 1>&3
 	  #upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" &> "${WORK_DIR}/${PACKAGE_BASENAME}.log" && {
 	  upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" | tee "${WORK_DIR}/${PACKAGE_BASENAME}.log" 1>&5
-	  [ ${PIPESTATUS[0]} -eq 0 ] && {
+	  if [ ${PIPESTATUS[0]} -eq 0 ]
+	  then
             echo -e "${HL}ok${RST}!" 1>&3
             ####################################################################
 	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
             ####################################################################
 	    UPGRADED_PACKAGES[${#UPGRADED_PACKAGES[*]}]="${PACKAGE_BASENAME}"
 	    return ${RET_OK}
-          } || {
+	  else
 	    echo -e "${ERR}FAILED${RST}, check the log in \`${HL}${WORK_DIR}/${PACKAGE_BASENAME}.log${RST}'!" 1>&3
             return ${RET_FAILED}
-          }
-        }
+	  fi # if [ ${PIPESTATUS[0]} -eq 0 ]
+	fi # if (( ${DRY_RUN} ))
       ;;
       ${RET_FAILED})
         ########################################################################
@@ -781,6 +783,7 @@ function process_packages() {
   local    GLOB
   local -a LOCAL_FILES
   local    BLACKLISTED
+  local -i I
 
   pushd /var/log/packages &>/dev/null || return ${RET_FAILED}
 
