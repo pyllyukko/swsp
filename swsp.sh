@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Oct 25
+# modified:	2011 Dec 04
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -67,6 +67,7 @@
 #   - 25.4.2011: break the script down with functions, so the main function
 #                and loops look cleaner
 #     - constructing PACKAGES[] from security_update() to it's own function    #
+#   - 9.11.2011: restart certain services after upgrade?
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -876,8 +877,10 @@ function process_packages() {
       # SLACKWARE VERSION DETECTION                                              #
       # seamonkey-1.0.6-i486-1_slack11.0.tgz and others in slackware 12.0        #
       # ChangeLog                                                                #
+      # NOTE: 4.12.2011: added "_?" to regex because of:                         #
+      # ftp://ftp.slackware.com/pub/slackware/slackware-13.37/patches/packages/make-3.82-i486-3_slack_13.37.txz
       ############################################################################
-      [[ "${PKG_REV}" =~ "^.+slack(.+)$" ]] && [ "x${BASH_REMATCH[1]}" != "x${VERSION}" ] && {
+      [[ "${PKG_REV}" =~ "^.+slack_?(.+)$" ]] && [ "x${BASH_REMATCH[1]}" != "x${VERSION}" ] && {
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: skipping package \`${HL}${PKG_NAME}${RST}': revision = ${PKG_REV}!" 1>&2
         continue
       }
