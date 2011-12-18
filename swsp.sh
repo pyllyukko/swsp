@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Dec 04
+# modified:	2011 Dec 18
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -195,20 +195,27 @@ declare -ra WGET_ERRORS=(
 )
 ################################################################################
 function register_prog() {
-  local TYPE=`builtin type "${1}" 2>/dev/null`
-  [[ "${TYPE}" =~ "is a shell builtin$" ]] && alias "${1}"="builtin ${1}" || {
-    local PROG=`/usr/bin/which "${1}" 2>/dev/null`
-    [ -z "${PROG}" -o ! -x "${PROG}" ] && {
-      echo -e "${FUNCNAME}(): error: couldn't find program: \`${1}'!" 1>&2
-      return ${RET_FAILED}
-    } || {
-      alias ${1}=${PROG}
-    }
-  }
+  # $1 = command
+  #
+  # RET_OK if all went well
+  # RET_FAILED in case of command not found
+
+  # references:
+  #
+  # http://tldp.org/LDP/abs/html/internal.html#HASHCMDREF
+  # http://wiki.bash-hackers.org/scripting/style#availability_of_commands
+  # https://www.gnu.org/s/bash/manual/html_node/Bourne-Shell-Builtins.html#index-hash-117
+
+  if ! hash "${1}" 2>/dev/null
+  then
+    printf "%s(): error: Command not found in PATH: %s\n" "${FUNCNAME}" "${1}" >&2
+    return ${RET_FAILED}
+  fi
+
   return ${RET_OK}
 } # register_prog()
 ################################################################################
-for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo rm mkdir egrep eval
+for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo rm mkdir egrep eval cut wget cat column
 do
   register_prog "${PROGRAM}" || exit 1
 done
