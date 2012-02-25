@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2011 Dec 18
+# modified:	2012 Feb 26
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -36,7 +36,7 @@
 #   - scan extra/ in changelog!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! #
 #   - MIRRORS_fi[] etc.                                                        #
 #   - $SKIP_CHECKS, revision check at least                                    #
-#     - force switch? -- ignore gpg's and shit?!?                              #
+#     - force switch? -- ignore gpg's and stuff?!?                             #
 #   - 20.3.2008: minimize dependencies                                         #
 #   - 21.3.2008: optimize or rewrite version checking functions!!!             #
 #   - 18.4.2008: search in other directories than patches too!                 #
@@ -53,7 +53,7 @@
 #       - others?
 #     - coproc that logs from fd5?
 #   - 19.9.2009: gettext support???                                            #
-#   - 19.9.2009: somehow print the SSA id, maybe even cve...                   #
+#   * 19.9.2009: somehow print the SSA id, maybe even cve...                   #
 #     - from osvdb?
 #    4.10.2009   -- trap DEBUG?                                                #
 #    8.10.2009   -- we could add a comparison count on read packages (grep -c) #
@@ -68,6 +68,12 @@
 #                and loops look cleaner
 #     - constructing PACKAGES[] from security_update() to it's own function    #
 #   - 9.11.2011: restart certain services after upgrade?
+#   - 8.1.2012: wild idea: in case of updated libraries, could we check which
+#     programs might have the old version loaded in memory with something like
+#     lsof?
+#   - 8.1.2012: something like
+#     http://connie.slackware.com/~alien/tools/rsync_slackware_patches.sh ?
+#   - 17.1.2012: compare timestamp / lastmod of FILE_LIST with FTP ? to verify the file is really the latest
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -117,6 +123,12 @@
 [ ${BASH_VERSINFO[0]} -eq 4 ] && shopt -s compat31
 ################################################################################
 # OFFICIAL MIRRORS IN FINLAND (8.8.2006)                                       #
+#                                                                              #
+# TODO: we could try to use /etc/slackpkg/mirrors                              #
+#                                                                              #
+# feel free to replace these mirrors, but make sure that you have the correct  #
+# path in the URL. slackware-<version> directories should be directly below    #
+# these URLs.                                                                  #
 ################################################################################
 declare -ra MIRRORS=(
   'http://ftp.belnet.be/packages/slackware/'
@@ -195,10 +207,14 @@ declare -ra WGET_ERRORS=(
 )
 ################################################################################
 function register_prog() {
+  # this function checks that we have all the required commands available.
+  #
   # $1 = command
   #
   # RET_OK if all went well
   # RET_FAILED in case of command not found
+  #
+  # NOTE: we could also try to use the command_not_found_handle functionality.
 
   # references:
   #
@@ -215,7 +231,7 @@ function register_prog() {
   return ${RET_OK}
 } # register_prog()
 ################################################################################
-for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo rm mkdir egrep eval cut wget cat column
+for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo rm mkdir egrep eval cut wget cat column date
 do
   register_prog "${PROGRAM}" || exit 1
 done
@@ -575,8 +591,8 @@ function verify_package() {
     }
   fi
 
-  md5_verify "${1}" "${1}"							|| return ${RET_FAILED}
-  md5_verify "${SIGFILE}" "${SIGFILE}"						|| return ${RET_FAILED}
+  md5_verify "${1}" "${1##*/}"							|| return ${RET_FAILED}
+  md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"						|| return ${RET_FAILED}
   gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
@@ -752,7 +768,7 @@ function find_ssa() {
     echo "${FUNCNAME}(): parameter error!" 1>&2
     return ${RET_ERROR}
   }
-  SSAS=(`grep -l "${1}" "${WORK_DIR}/advisories/${YEAR}/SSA"*`)
+  SSAS=(`grep -l "${1}" "${WORK_DIR}/advisories/${YEAR}/SSA"* 2>/dev/null`)
   if [ ${#SSAS[*]} -eq 0 ]
   then
     # for some updates, there just isn't advisory available. see
@@ -941,6 +957,8 @@ function process_packages() {
 } # process_packages()
 ################################################################################
 function print_upgrade_summary() {
+  # this function prints summary about the upgraded packages. this is called
+  # from security_update() function.
   local -i I
   local -i J
 
@@ -1264,6 +1282,7 @@ function check_for_updates() {
   return ${RET_OK}
 } # check_for_updates()
 ################################################################################
+# TODO: ChangeLog is not currently updated!
 function print_patch_stats() {
   # print_patch_stats() -- 9.8.2009                                            #
   [ ! -f "${WORK_DIR}/ChangeLog.txt" ] && {
@@ -1274,6 +1293,8 @@ function print_patch_stats() {
   local -a PROGRAMS=(`sed -n 's/^patches\/packages\/\(.\+\)-[^-]\+-[^-]\+-[^-]\+\.t[gx]z:\{0,1\}.*$/\1/p' "${WORK_DIR}/ChangeLog.txt" | sort | uniq`)
   local    PROGRAM
   local -i PATCH_COUNT
+
+  echo "${FUNCNAME}(): warning: ChangeLog might not be up-to-date, so the following data might not be accurate!" 1>&2
   echo "${COUNT} patches:"
   {
     echo "program|patches|percent"
@@ -1287,6 +1308,8 @@ function print_patch_stats() {
 } # print_patch_stats()
 ################################################################################
 function show_upgrade_history() {
+  # this function prints your package upgrade history based on the information
+  # available at /var/log/removed_packages.
   local    REMOVED_PACKAGE
   local    PACKAGE
   local    VERSION
@@ -1342,7 +1365,7 @@ function usage() {
 	    -a   update SSA cache
 	    -d	 dry-run
 	    -h	 this help
-	    -H   show upgrade history
+	    -H   show upgrade history from /var/log/removed_packages
 	    -l	 list available updates
 	    -p	 print configuration
 	    -P	 fetch and import Slackware's PGP key
@@ -1514,9 +1537,16 @@ function update_advisories() {
   local    ID
   local    PACKAGE
   local    SSA
+  local -i WGET_TIMEOUT=10
+  local -i WGET_RETRIES=5
   [ ! -d "${WORK_DIR}/advisories/${YEAR}" ] && mkdir -pv "${WORK_DIR}/advisories/${YEAR}"
   echo "${FUNCNAME}(): updating Slackware security advisories..."
-  wget --quiet --output-document=- "${URL}" | sed -n 's/^.\+\([0-9]\{4\}-[0-9]\+-[0-9]\+\).\+\(slackware-security\.[0-9]\+\).\+\s\+\(.\+\)\s\+(\(SSA:[0-9-]\+\).\+$/\1 \2 \3 \4/p' 1>"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
+  # we define more strict timeouts and retries here, because this function is not THAT important.
+  wget --quiet --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --output-document=- "${URL}" | sed -n 's/^.\+\([0-9]\{4\}-[0-9]\+-[0-9]\+\).\+\(slackware-security\.[0-9]\+\).\+\s\+\(.\+\)\s\+(\(SSA:[0-9-]\+\).\+$/\1 \2 \3 \4/p' 1>"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
+  if [ ${?} -ne 0 ]
+  then
+    echo "${FUNCNAME}(): ${ERR}error${RST}: error occured while downloading advisories." 1>&2
+  fi
   while read DATE ID PACKAGE SSA
   do
     #echo "${DATE} - ${ID} - ${PACKAGE} - ${SSA}"
@@ -1524,7 +1554,7 @@ function update_advisories() {
     URL="http://www.slackware.com/security/viewer.php?l=slackware-security&y=${YEAR}&m=${ID}"
     [ ! -f "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" -o \
       ! -s "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" ] && {
-      wget --quiet --output-document=- "${URL}" | \
+      wget --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --quiet --output-document=- "${URL}" | \
 	awk '/^-----BEGIN PGP SIGNED MESSAGE-----$/,/^-----END PGP SIGNATURE-----$/{print}' 1>"${WORK_DIR}/advisories/${YEAR}/${SSA}.txt"
       ((NEW_COUNT++))
     }
