@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Feb 26
+# modified:	2012 May 01
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -74,6 +74,9 @@
 #   - 8.1.2012: something like
 #     http://connie.slackware.com/~alien/tools/rsync_slackware_patches.sh ?
 #   - 17.1.2012: compare timestamp / lastmod of FILE_LIST with FTP ? to verify the file is really the latest
+#   - 2.3.2012: downgrade?
+#   - 1.5.2012: replace some of the echo's with printf's to make it more
+#               readable (too much variables)
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
@@ -120,7 +123,10 @@
   exit 1
 }
 # we need this to stay compatible with different versions of slackware!
-[ ${BASH_VERSINFO[0]} -eq 4 ] && shopt -s compat31
+if [ ${BASH_VERSINFO[0]} -eq 4 ]
+then
+  shopt -s compat31
+fi
 ################################################################################
 # OFFICIAL MIRRORS IN FINLAND (8.8.2006)                                       #
 #                                                                              #
@@ -231,7 +237,7 @@ function register_prog() {
   return ${RET_OK}
 } # register_prog()
 ################################################################################
-for PROGRAM in gpg gpgv md5sum upgradepkg awk sed grep echo rm mkdir egrep eval cut wget cat column date
+for PROGRAM in gpg gpgv md5sum upgradepkg awk gawk sed grep echo rm mkdir egrep eval cut wget cat column date
 do
   register_prog "${PROGRAM}" || exit 1
 done
@@ -305,17 +311,18 @@ function get_file() {
   local -i WGET_RET=0
   local -a TIMESTAMPS
 
-  [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]] && {
+  if [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]]
+  then
     #            PROTO---   HOST---  DIR-  FILE---                             #
     ############################################################################
     local PROTO="${BASH_REMATCH[1]}"
     local HOST="${BASH_REMATCH[2]}"
     local DIR="${BASH_REMATCH[3]}"
     local FILE="${BASH_REMATCH[4]}"
-  } || {
+  else
     echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
 
   ##############################################################################
   # NOTE: ADD FILE://                                                          #
@@ -328,7 +335,10 @@ function get_file() {
       echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
       # if the file already exists, take the timestamp. we use this to detect
       # if wget downloaded a newer file.
-      [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      if [ -f "${WORK_DIR}/${FILE}" ]
+      then
+	TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      fi
       ##########################################################################
       # wget(1):                                                               #
       # When running Wget with -N, with or without -r, the decision as to      #
@@ -338,16 +348,21 @@ function get_file() {
       # TODO: use --cut-dirs with wget
       wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
       WGET_RET=${?}
-      [ -f "${WORK_DIR}/${FILE}" ] && TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      if [ -f "${WORK_DIR}/${FILE}" ]
+      then
+	TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      fi
+
       if [ ${WGET_RET} -eq 0 ]
       then
         # detect whether we downloaded anything
-        [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ] && {
+        if [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ]
+	then
           echo "  server file no newer than local file" 1>&3
-        } || {
+	else
           BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
           echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
-        }
+	fi
       else
         echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
         RET=${RET_FAILED}
@@ -591,6 +606,7 @@ function verify_package() {
     }
   fi
 
+  # we search with the full path (e.g.: "linux-2.6.27.31/kernel-modules-smp-2.6.27.31_smp-i686-2.tgz.asc")
   md5_verify "${1}" "${1##*/}"							|| return ${RET_FAILED}
   md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"						|| return ${RET_FAILED}
   gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
@@ -861,13 +877,14 @@ function process_packages() {
       #echo "${FUNCNAME}(): DEBUG: PACKAGES[\$I]=${PACKAGES[${I}]}"
       [ "x${PKG_VERSION}" = "x${LOCAL_PKG_VERSION}" -a "x${PKG_REV}" = "x${LOCAL_PKG_REV}" ] && continue
       echo "package details:"
-      echo "  update [$[${I}+1]/${#PACKAGES[*]}]"
-      echo -e "    name:\t${PKG_NAME}"
-      echo -e "    version:\t${HL}${PKG_VERSION}${RST}"
-      echo -e "    revision:\t${PKG_REV}"
-      echo "  current"
-      echo -e "    version:\t${LOCAL_PKG_VERSION}"
-      echo -e "    revision:\t${LOCAL_PKG_REV}"
+      echo    "  update [$[${I}+1]/${#PACKAGES[*]}] ${HL}${PKG_NAME}${RST}:"
+      #echo -e "    name:\t${PKG_NAME}"
+      echo -e "    available:"
+      echo -e "      version:\t${HL}${PKG_VERSION}${RST}"
+      echo -e "      revision:\t${PKG_REV}"
+      echo    "    current:"
+      echo -e "      version:\t${LOCAL_PKG_VERSION}"
+      echo -e "      revision:\t${LOCAL_PKG_REV}"
       until [ "x${REPLY}" = "xy" -o "x${REPLY}" = "xn" ]
       do
         read -p "upgrade package \`${PKG_NAME}'? y/n: " -n 1 REPLY
@@ -978,7 +995,8 @@ function print_upgrade_summary() {
   done
 
   # if there were packages that failed to upgrade, print a list
-  [ "${#FAILED_PACKAGES[*]}" -ne 0 ] && {
+  if [ "${#FAILED_PACKAGES[*]}" -ne 0 ]
+  then
     echo -n $'\n'
     echo -e "  [${HL}${#FAILED_PACKAGES[*]}${RST}/${#UPDATES[*]}] package(s) ${ERR}failed${RST} to upgrade:"
     for ((
@@ -989,7 +1007,7 @@ function print_upgrade_summary() {
     do
       echo "    ${J}: ${FAILED_PACKAGES[${I}]}"
     done
-  }
+  fi
 
   return 0
 } # print_upgrade_summary()
@@ -1538,7 +1556,7 @@ function update_advisories() {
   local    PACKAGE
   local    SSA
   local -i WGET_TIMEOUT=10
-  local -i WGET_RETRIES=5
+  local -i WGET_RETRIES=1
   [ ! -d "${WORK_DIR}/advisories/${YEAR}" ] && mkdir -pv "${WORK_DIR}/advisories/${YEAR}"
   echo "${FUNCNAME}(): updating Slackware security advisories..."
   # we define more strict timeouts and retries here, because this function is not THAT important.
@@ -1552,12 +1570,13 @@ function update_advisories() {
     #echo "${DATE} - ${ID} - ${PACKAGE} - ${SSA}"
     #echo "  ${SSA}"
     URL="http://www.slackware.com/security/viewer.php?l=slackware-security&y=${YEAR}&m=${ID}"
-    [ ! -f "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" -o \
-      ! -s "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" ] && {
+    if [ ! -f "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" -o \
+         ! -s "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" ]
+    then
       wget --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --quiet --output-document=- "${URL}" | \
 	awk '/^-----BEGIN PGP SIGNED MESSAGE-----$/,/^-----END PGP SIGNATURE-----$/{print}' 1>"${WORK_DIR}/advisories/${YEAR}/${SSA}.txt"
       ((NEW_COUNT++))
-    }
+    fi
   done 0<"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
 
   if [ ${NEW_COUNT} -gt 0 ]
@@ -1621,14 +1640,15 @@ do
     ;;
   esac
 done
-(( ! ${MONOCHROME} )) && {
+if (( ! ${MONOCHROME} ))
+then
   declare -r HL="\033[1m"
   declare -r RST="\033[0m"
   declare -r ERR="\033[0;31m"
   declare -r WRN="\033[1;31m"
   declare -r SCP="\033[s"
   declare -r RCP="\033[u"
-}
+fi
 sanity_checks || exit ${RET_FAILED}
 ################################################################################
 # ...THEN DECIDE WHAT TO DO!                                                   #
@@ -1648,11 +1668,12 @@ case "${ACTION}" in
 esac
 # if swsp detected kernel updates amongst the upgraded packages,               #
 # a little reminder.                                                           #
-(( ${KERNEL_UPGRADE} )) && {
+if (( ${KERNEL_UPGRADE} ))
+then
   echo -e "\n${HL}notice${RST}: kernel updates"
   [ -n "${KERNEL_UPGRADE_README}" ] && echo "        there seems to be a README available at ${KERNEL_UPGRADE_README}, i suggest you read it."
   echo -n $'\n'
-}
+fi
 ################################################################################
 # and then for some totally unnecessary information!-)                         #
 ################################################################################
