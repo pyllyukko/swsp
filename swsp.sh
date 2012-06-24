@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 May 01
+# modified:	2012 Jun 24
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -182,7 +182,7 @@ declare -r  YEAR=`date +%Y`
 declare USE_SYSLOG=1
 declare SHOW_DESCRIPTION=1
 # TODO: rename variable
-declare PRINT_WGET_OUTPUT=0
+declare PRINT_WGET_OUTPUT=1
 declare KERNEL_UPGRADE=0
 declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
@@ -513,6 +513,8 @@ function gpg_verify() {
     return ${RET_FAILED}
   fi
   echo -en "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP..." 1>&3
+  # print a newline so gpgv output is on it's own lines...
+  (( ${PRINT_WGET_OUTPUT} )) && echo -n $'\n' 1>&3
   ##############################################################################
   # GPG FAQ:                                                                   #
   # If the signature file has the same base name as the package file,          #
@@ -521,15 +523,21 @@ function gpg_verify() {
   # given (less the .sig or .asc extension).                                   #
   ##############################################################################
   echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
+  # NOTE:
+  #   we could leave the gpgv output even without PRINT_WGET_OUTPUT, since it
+  #   has useful information. namely the timestamp.
+  #   "gpgv: Signature made Sat 16 Jun 2012 07:21:45 PM EEST using DSA key ID 40102233"
   gpgv --quiet --logger-fd 5 "${SIGFILE}"
   RET=${?}
   case "${RET}" in
-    0) echo -e "${HL}ok${RST}!" 1>&3 ;;
+    0)
+      (( ! ${PRINT_WGET_OUTPUT} )) && echo -e "${HL}ok${RST}!" 1>&3
+    ;;
     *)
       echo -e "${ERR}failed${RST} (code ${RET})!" 1>&3
       # WE CHANGE THE NON-ZERO RETURN CODE TO 1, since this function can't     #
       # return with fatal error                                                #
-      RET=1
+      RET=${RET_FAILED}
     ;;
   esac
   return ${RET}
@@ -970,7 +978,7 @@ function process_packages() {
 
   echo -e "${FUNCNAME}(): done processing packages" 1>&3
 
-  return 0
+  return ${RET_OK}
 } # process_packages()
 ################################################################################
 function print_upgrade_summary() {
@@ -1009,7 +1017,7 @@ function print_upgrade_summary() {
     done
   fi
 
-  return 0
+  return ${RET_OK}
 } # print_upgrade_summary()
 ################################################################################
 function security_update()
@@ -1560,7 +1568,8 @@ function update_advisories() {
   [ ! -d "${WORK_DIR}/advisories/${YEAR}" ] && mkdir -pv "${WORK_DIR}/advisories/${YEAR}"
   echo "${FUNCNAME}(): updating Slackware security advisories..."
   # we define more strict timeouts and retries here, because this function is not THAT important.
-  wget --quiet --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --output-document=- "${URL}" | sed -n 's/^.\+\([0-9]\{4\}-[0-9]\+-[0-9]\+\).\+\(slackware-security\.[0-9]\+\).\+\s\+\(.\+\)\s\+(\(SSA:[0-9-]\+\).\+$/\1 \2 \3 \4/p' 1>"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
+  #wget --quiet --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --output-document=- "${URL}" | sed -n 's/^.\+\([0-9]\{4\}-[0-9]\+-[0-9]\+\).\+\(slackware-security\.[0-9]\+\).\+\s\+\(.\+\)\s\+(\(SSA:[0-9-]\+\).\+$/\1 \2 \3 \4/p' 1>"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
+  wget -nv --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --output-document=- "${URL}" | sed -n 's/^.\+\([0-9]\{4\}-[0-9]\+-[0-9]\+\).\+\(slackware-security\.[0-9]\+\).\+\s\+\(.\+\)\s\+(\(SSA:[0-9-]\+\).\+$/\1 \2 \3 \4/p' 1>"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
   if [ ${?} -ne 0 ]
   then
     echo "${FUNCNAME}(): ${ERR}error${RST}: error occured while downloading advisories." 1>&2
@@ -1587,7 +1596,7 @@ function update_advisories() {
     echo "${FUNCNAME}(): no new advisories available" 1>&3
   fi
 
-  return 0
+  return ${RET_OK}
 } # update_advisories()
 ################################################################################
 [ ${#} -eq 0 ] && {
