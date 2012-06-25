@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Jun 24
+# modified:	2012 Jun 25
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -182,7 +182,7 @@ declare -r  YEAR=`date +%Y`
 declare USE_SYSLOG=1
 declare SHOW_DESCRIPTION=1
 # TODO: rename variable
-declare PRINT_WGET_OUTPUT=1
+declare PRINT_WGET_OUTPUT=0
 declare KERNEL_UPGRADE=0
 declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
@@ -447,30 +447,33 @@ function md5_verify() {
   # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
   # $SIGFILE could include /'s so we use `:' with sed                          #
   MD5SUMS=(
-    `sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+\..*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
-    `md5sum "${WORK_DIR}/${SIGFILE_BASENAME}" 2>/dev/null | awk '{print $1}'`
+    $( sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+\..*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null )
+    $( md5sum "${WORK_DIR}/${SIGFILE_BASENAME}" 2>/dev/null | awk '{print $1}' )
   )
   # sanity check... better safe than sorry                                     #
-  [ ${#MD5SUMS[*]} -ne 2 -o \
-    ${#MD5SUMS[0]} -ne 32 -o \
-    ${#MD5SUMS[1]} -ne 32 ] && {
+  if [ ${#MD5SUMS[*]} -ne 2 -o \
+       ${#MD5SUMS[0]} -ne 32 -o \
+       ${#MD5SUMS[1]} -ne 32 ]
+  then
     ############################################################################
     # NOTE: OF COURSE THIS SHOULD NEVER HAPPEN!                                #
     ############################################################################
     echo -e "${ERR}error${RST}!" 1>&3
-    echo "${FUNCNAME}(): error between lines $[${LINENO}-12]-$[${LINENO}-9]!" 1>&2
+    echo "${FUNCNAME}(): error between lines $[LINENO-12]-$[LINENO-9]!" 1>&2
     return ${RET_ERROR}
-  }
-  [ "x${MD5SUMS[0]}" = "x${MD5SUMS[1]}" ] && {
+  fi
+  if [ "x${MD5SUMS[0]}" = "x${MD5SUMS[1]}" ]
+  then
     ############################################################################
     # SINCE BOTH MD5'S ARE THE SAME, WE RANDOMIZE WHICH ONE TO PRINT=)         #
     ############################################################################
-    echo -e "${HL}match${RST}!\n    MD5 checksum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
+    #echo -e "${HL}match${RST}!\n    MD5 checksum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
+    echo -e "${HL}match${RST} (MD5: ${HL}${MD5SUMS[$[RANDOM%2]]}${RST})!" 1>&3
     RET=${RET_OK}
-  } || {
+  else
     echo -e "${ERR}mismatch${RST}!" 1>&3
     RET=${RET_FAILED}
-  }
+  fi
   return ${RET}
 } # md5_verify
 ################################################################################
@@ -512,9 +515,9 @@ function gpg_verify() {
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: sigfile \`${SIGFILE}' does not exist!" 1>&2
     return ${RET_FAILED}
   fi
-  echo -en "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP..." 1>&3
+  echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP..." 1>&3
   # print a newline so gpgv output is on it's own lines...
-  (( ${PRINT_WGET_OUTPUT} )) && echo -n $'\n' 1>&3
+  #(( ${PRINT_WGET_OUTPUT} )) && echo -n $'\n' 1>&3
   ##############################################################################
   # GPG FAQ:                                                                   #
   # If the signature file has the same base name as the package file,          #
@@ -527,11 +530,18 @@ function gpg_verify() {
   #   we could leave the gpgv output even without PRINT_WGET_OUTPUT, since it
   #   has useful information. namely the timestamp.
   #   "gpgv: Signature made Sat 16 Jun 2012 07:21:45 PM EEST using DSA key ID 40102233"
-  gpgv --quiet --logger-fd 5 "${SIGFILE}"
+
+  # old version (output -> fd#5)
+  #gpgv --quiet --logger-fd 5 "${SIGFILE}"
+
+  # current, quiet output always since it's quite useful.
+  gpgv --quiet "${SIGFILE}"
   RET=${?}
+  #RET=${PIPESTATUS[0]}
   case "${RET}" in
     0)
-      (( ! ${PRINT_WGET_OUTPUT} )) && echo -e "${HL}ok${RST}!" 1>&3
+      #(( ! ${PRINT_WGET_OUTPUT} )) && echo -e "${HL}ok${RST}!" 1>&3
+      true
     ;;
     *)
       echo -e "${ERR}failed${RST} (code ${RET})!" 1>&3
@@ -616,7 +626,7 @@ function verify_package() {
 
   # we search with the full path (e.g.: "linux-2.6.27.31/kernel-modules-smp-2.6.27.31_smp-i686-2.tgz.asc")
   md5_verify "${1}" "${1##*/}"							|| return ${RET_FAILED}
-  md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"						|| return ${RET_FAILED}
+  md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"					|| return ${RET_FAILED}
   gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
