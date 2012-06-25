@@ -1,7 +1,7 @@
 #!/bin/bash --
 ################################################################################
 #                                                                              #
-# slackware security patcher *BETA*                                            #
+# slackware security patcher                                                   #
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
@@ -1573,6 +1573,7 @@ function update_advisories() {
   if [ ${?} -ne 0 ]
   then
     echo "${FUNCNAME}(): ${ERR}error${RST}: error occured while downloading advisories." 1>&2
+    return ${RET_FAILED}
   fi
   while read DATE ID PACKAGE SSA
   do
