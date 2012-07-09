@@ -951,8 +951,9 @@ function process_packages() {
 
       # if SKIP_VERSION_TEST is set and it's not the same exact version+revision,
       # add it to the update list
-      if (( ${SKIP_VERSION_TEST} )) && \
-	[ "x${PKG_VERSION}-${PKG_REV}" != "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
+      if \
+	(( ${SKIP_VERSION_TEST} )) && \
+	  [ "x${PKG_VERSION}-${PKG_REV}" != "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
       then
         UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
       else
@@ -1663,8 +1664,15 @@ do
     ;;
   esac
 done
-if (( ! ${MONOCHROME} ))
+if (( ${MONOCHROME} ))
 then
+  declare -r HL=""
+  declare -r RST=""
+  declare -r ERR=""
+  declare -r WRN=""
+  declare -r SCP=""
+  declare -r RCP=""
+else
   declare -r HL="\033[1m"
   declare -r RST="\033[0m"
   declare -r ERR="\033[0;31m"
