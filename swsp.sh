@@ -21,6 +21,53 @@
 #                                                                              #
 # ############################################################################ #
 #                                                                              #
+# this is roughly how this script works:
+#                                                                              #
+#   - perform a bunch of sanity checks
+#   - detect the Slackware version and architecture in use
+#   - fetch the patches/FILE_LIST		file from $MAIN_MIRROR FTP
+#   - fetch the patches/CHECKSUMS.md5		file from $MAIN_MIRROR FTP
+#   - fetch the patches/CHECKSUMS.md5.asc	file from $MAIN_MIRROR FTP
+#   - verify the PGP signature of CHECKSUMS.md5
+#   - verify the FILE_LIST MD5 from CHECKSUMS.md5
+#   - at this point we should be confident that the patch list is authentic
+#   - read all available packages from FILE_LIST into $PACKAGES[] array
+
+#   - go through the $PACKAGES[] array:
+#     - check if the package in question is installed on the local system
+#     - if $SELECT_UPDATES_INDIVIDUALLY is 1, let user choose whether to add
+#       the package to the $UPDATES[] array
+#     - go through the $UPDATE_BLACKLIST[] array to see if we should skip this
+#       patch
+#     - verify the slackware version tag in the package's revision field is
+#       correct, if available at all that is
+#     - if SKIP_VERSION_TEST is 0, perform version comparison against the
+#       currently installed versions with version_checker() and
+#       do_version_check() functions
+#       - if versions are the same, compare the revisions
+#     - if SKIP_VERSION_TEST is 1, just compare whether the versions are
+#       exactly same
+#   - add suitable packages to the $UPDATES[] array
+#   - print a brief summary about the packages in the $UPDATES[] array
+
+#   - start processing the $UPDATES[] array:
+#     - try to fetch the SSA ID for the patch from www.slackware.com
+#     - check if the patch is a kernel upgrade, so we can notify the user that
+#       it needs some manual work
+#     - try all the $MIRRORS[] until the package and it's PGP signature file
+#       are downloaded
+#     - verify the package's MD5 from CHECKSUMS.md5 (note that CHECKSUMS.md5
+#       itself should already be verified at this point, also see
+#       $CHECKSUMS_VERIFIED variable)
+#     - verify the package's PGP signature
+#     - run upgradepkg with --dry-run first and the the real deal
+#     - if everything went well, add the applied patch to $UPGRADED_PACKAGES[]
+#       array, otherwise to the $FAILED_PACKAGES[] array
+#                                                                              #
+#   ... to be continued
+#                                                                              #
+# ############################################################################ #
+#                                                                              #
 # NOTES:                                                                       #
 #                                                                              #
 # TODO: (- = pending & * = done)                                               #
@@ -717,6 +764,7 @@ function upgrade_package_from_mirror() {
 	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return ${RET_FAILED}
 	if (( ${DRY_RUN} ))
 	then
+	  # dry-run mode, so we stop here.
 	  return ${RET_OK}
 	else
           echo -e "  ${HL}notice${RST}: logging the upgrade process to \`${WORK_DIR}/${PACKAGE_BASENAME}.log'." 1>&3
@@ -729,7 +777,8 @@ function upgrade_package_from_mirror() {
             ####################################################################
 	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
             ####################################################################
-	    UPGRADED_PACKAGES[${#UPGRADED_PACKAGES[*]}]="${PACKAGE_BASENAME}"
+	    #UPGRADED_PACKAGES[${#UPGRADED_PACKAGES[*]}]="${PACKAGE_BASENAME}"
+	    UPGRADED_PACKAGES+=("${PACKAGE_BASENAME}")
 	    return ${RET_OK}
 	  else
 	    echo -e "${ERR}FAILED${RST}, check the log in \`${HL}${WORK_DIR}/${PACKAGE_BASENAME}.log${RST}'!" 1>&3
@@ -885,10 +934,11 @@ function process_packages() {
       continue
     }
     split_package_name "${LOCAL_FILES[0]}" "LOCAL_PKG"
-    [ "x${PKG_NAME}" != "x${LOCAL_PKG_NAME}" ] && {
-      echo "${FUNCNAME}(): unknown error at line $[${LINENO}-2]!" 1>&2
+    if [ "x${PKG_NAME}" != "x${LOCAL_PKG_NAME}" ]
+    then
+      echo "${FUNCNAME}(): unknown error at line $[LINENO-2]!" 1>&2
       continue
-    }
+    fi
     if (( ${SELECT_UPDATES_INDIVIDUALLY} ))
     then
       # remember: print local and remote versions...
@@ -939,10 +989,13 @@ function process_packages() {
       # NOTE: 4.12.2011: added "_?" to regex because of:                         #
       # ftp://ftp.slackware.com/pub/slackware/slackware-13.37/patches/packages/make-3.82-i486-3_slack_13.37.txz
       ############################################################################
-      [[ "${PKG_REV}" =~ "^.+slack_?(.+)$" ]] && [ "x${BASH_REMATCH[1]}" != "x${VERSION}" ] && {
+      if \
+	[[ "${PKG_REV}" =~ "^.+slack_?(.+)$" ]] && \
+	  [ "x${BASH_REMATCH[1]}" != "x${VERSION}" ]
+      then
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: skipping package \`${HL}${PKG_NAME}${RST}': revision = ${PKG_REV}!" 1>&2
         continue
-      }
+      fi
 
       # exactly same version -> next
       # no need to run version_checker().
@@ -953,6 +1006,7 @@ function process_packages() {
       # add it to the update list
       if \
 	(( ${SKIP_VERSION_TEST} )) && \
+	  # TODO: we could have upgradepkg make the following decision.
 	  [ "x${PKG_VERSION}-${PKG_REV}" != "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
       then
 	UPDATES+=("${PACKAGES[I]}")
@@ -975,13 +1029,11 @@ function process_packages() {
             # LOCAL REV > REMOTE REV || LOCAL REV == REMOTE REV                    #
             ########################################################################
             [ ${?} -ne 11 ] && continue
-            #UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
 	    UPDATES+=("${PACKAGES[I]}")
           ;;
           ##########################################################################
           # LOCAL VERSION < REMOTE VERSION                                         #
           ##########################################################################
-          #11) UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}" ;;
           11) UPDATES+=("${PACKAGES[I]}") ;;
         esac
       fi # if (( ${SKIP_VERSION_TEST} ))
@@ -1117,7 +1169,8 @@ function security_update()
           continue
 	elif [[ "${REPLY[7]}" =~ "^\./packages/(.+\.t[gx]z)$" ]]
 	then
-          PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
+          #PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
+	  PACKAGES+=("${BASH_REMATCH[1]}")
 	# detect kernel upgrade instructions from the file list
 	elif [[ "${REPLY[7]}" =~ "^\./(packages/linux-.+/README)$" ]]
 	then
@@ -1152,7 +1205,8 @@ EOF
   process_packages ${PACKAGES[*]}
 
   # print the list of packages before beginning
-  [ ${#UPDATES[*]} -gt 0 ] && {
+  if [ ${#UPDATES[*]} -gt 0 ]
+  then
     echo -e "\ngoing to update the following ${HL}${#UPDATES[*]}${RST} package(s):" 1>&3
     for ((I=0; I<${#UPDATES[*]}; I++))
     do
@@ -1161,7 +1215,7 @@ EOF
       echo "  ${UPDATE_BASENAME}" 1>&3
     done
     echo -n $'\n' 1>&3
-  }
+  fi
 
   ##############################################################################
 
