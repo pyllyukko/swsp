@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Jun 25
+# modified:	2012 Jul 09
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -122,6 +122,7 @@
   echo    "       you can bypass this check by commenting out lines $[${LINENO}-2]-$[${LINENO}+2]." 1>&2
   exit 1
 }
+set -u
 # we need this to stay compatible with different versions of slackware!
 if [ ${BASH_VERSINFO[0]} -eq 4 ]
 then
@@ -1108,9 +1109,11 @@ function security_update()
       # -rw-r--r--  1 root root 20490788 2011-06-16 02:03 ./packages/seamonkey-2.1-i486-1_slack13.37.txz
       while read -a REPLY
       do
-	if [[ "${REPLY[7]}" =~ "^\./packages/(.+\.t[gx]z)$" ]]
+	if [ ${#REPLY[*]} -lt 8 ]
 	then
-          #echo "${FUNCNAME}(): DEBUG: ${REPLY[7]}"
+          continue
+	elif [[ "${REPLY[7]}" =~ "^\./packages/(.+\.t[gx]z)$" ]]
+	then
           PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
 	# detect kernel upgrade instructions from the file list
 	elif [[ "${REPLY[7]}" =~ "^\./(packages/linux-.+/README)$" ]]
