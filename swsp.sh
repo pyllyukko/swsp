@@ -955,7 +955,7 @@ function process_packages() {
 	(( ${SKIP_VERSION_TEST} )) && \
 	  [ "x${PKG_VERSION}-${PKG_REV}" != "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
       then
-        UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
+	UPDATES+=("${PACKAGES[I]}")
       else
         version_checker "${PKG_VERSION}" "${LOCAL_PKG_VERSION}"
         case "${?}" in
@@ -975,12 +975,14 @@ function process_packages() {
             # LOCAL REV > REMOTE REV || LOCAL REV == REMOTE REV                    #
             ########################################################################
             [ ${?} -ne 11 ] && continue
-            UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
+            #UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
+	    UPDATES+=("${PACKAGES[I]}")
           ;;
           ##########################################################################
           # LOCAL VERSION < REMOTE VERSION                                         #
           ##########################################################################
-          11) UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}" ;;
+          #11) UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}" ;;
+          11) UPDATES+=("${PACKAGES[I]}") ;;
         esac
       fi # if (( ${SKIP_VERSION_TEST} ))
     fi # if ${SELECT_UPDATES_INDIVIDUALLY}
