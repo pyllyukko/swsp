@@ -1295,10 +1295,11 @@ function read_packages_from_changelog() {
   #                                                                            #
   # ...or double check against the ftp?                                        #
   #                                                                            #
-  [ ! -f "${WORK_DIR}/ChangeLog.txt" ] && {
+  if [ ! -f "${WORK_DIR}/ChangeLog.txt" ]
+  then
     echo "${FUNCNAME}(): error: no such file \`${WORK_DIR}/ChangeLog.txt'!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
   # 9.8.2009: 12.2 ChangeLog: "patches/packages/gnutls-2.6.2-i486-2_slack12.2.tgz"
   #           hence :{0,1} in regexp                                           #
   # 21.8.2009: need to work on this, how do we process                         #
@@ -1313,10 +1314,11 @@ function read_packages_from_changelog() {
   } END {
     for (package in packages) printf "%s-%s\n", package, packages[package]
   }' "${WORK_DIR}/ChangeLog.txt"
-  [ ${?} -ne 0 ] && {
+  if [ ${?} -ne 0 ]
+  then
     echo "${FUNCNAME}(): error: couldn't read packages!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
   return ${RET_OK}
 } # read_packages_from_changelog()
 ################################################################################
