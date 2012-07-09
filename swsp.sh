@@ -224,7 +224,7 @@ declare -a  UPGRADED_PACKAGES
 declare -a  FAILED_PACKAGES
 declare     ACTION=
 declare     CHECKSUMS_VERIFIED=false
-declare -r  YEAR=`date +%Y`
+declare -r  YEAR=$(date +%Y)
 
 # BOOLEANS
 declare USE_SYSLOG=1
@@ -245,7 +245,7 @@ export LANG=en_US
 export LC_COLLATE=C
 umask "${UMASK}" || {
   echo "error at line $[${LINENO}-1], couldn't change umask!" 1>&2
-  exit 1
+  exit ${RET_FAILED}
 }
 # from WGET(1) version 1.12:
 declare -ra WGET_ERRORS=(
@@ -287,7 +287,7 @@ function register_prog() {
 ################################################################################
 for PROGRAM in gpg gpgv md5sum upgradepkg awk gawk sed grep echo rm mkdir egrep eval cut wget cat column date
 do
-  register_prog "${PROGRAM}" || exit 1
+  register_prog "${PROGRAM}" || exit ${RET_FAILED}
 done
 declare COLUMNS="${COLUMNS:-`tput cols 2>/dev/null`}"
 #declare ARCH=`uname -m`
@@ -298,7 +298,7 @@ case "${MACHTYPE%%-*}" in
   i?86)		SLACKWARE="slackware"	;;
   *)
     echo "error: couldn't determine architecture." 1>&2
-    exit 1
+    exit ${RET_FAILED}
   ;;
 esac
 declare VERSION=`sed 's/^.*[[:space:]]\([0-9]\+\.[0-9]\+\).*$/\1/' /etc/slackware-version 2>/dev/null`
@@ -1000,7 +1000,10 @@ function process_packages() {
       # exactly same version -> next
       # no need to run version_checker().
       # NOTE: we could also run updatepkg --dry-run here?
-      [ "x${PKG_VERSION}-${PKG_REV}" = "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ] && continue
+      if [ "x${PKG_VERSION}-${PKG_REV}" = "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
+      then
+	continue
+      fi
 
       # if SKIP_VERSION_TEST is set and it's not the same exact version+revision,
       # add it to the update list
@@ -1370,10 +1373,11 @@ function check_for_updates() {
     `md5sum "${0}" 2>/dev/null | awk '{print $1}'`
     `wget --quiet --output-document=- http://maimed.org/~pyllyukko/files/swsp.sh 2>/dev/null | md5sum | awk '{print $1}'`
   )
-  [ ${#MD5SUMS[*]} -ne 2 -o ${#MD5SUMS[0]} -ne 32 -o ${#MD5SUMS[1]} -ne 32 ] && {
+  if [ ${#MD5SUMS[*]} -ne 2 -o ${#MD5SUMS[0]} -ne 32 -o ${#MD5SUMS[1]} -ne 32 ]
+  then
     echo "${FUNCNAME}(): error at line $[${LINENO}-3]!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
   [ "x${MD5SUMS[0]}" != "x${MD5SUMS[1]}" ] && echo "versions differ!" || echo "versions match!"
   return ${RET_OK}
 } # check_for_updates()
@@ -1381,10 +1385,11 @@ function check_for_updates() {
 # TODO: ChangeLog is not currently updated!
 function print_patch_stats() {
   # print_patch_stats() -- 9.8.2009                                            #
-  [ ! -f "${WORK_DIR}/ChangeLog.txt" ] && {
+  if [ ! -f "${WORK_DIR}/ChangeLog.txt" ]
+  then
     echo "${FUNCNAME}(): error: ChangeLog not available!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
   local -i COUNT=`grep -c "^patches/packages/" "${WORK_DIR}/ChangeLog.txt"`
   local -a PROGRAMS=(`sed -n 's/^patches\/packages\/\(.\+\)-[^-]\+-[^-]\+-[^-]\+\.t[gx]z:\{0,1\}.*$/\1/p' "${WORK_DIR}/ChangeLog.txt" | sort | uniq`)
   local    PROGRAM
@@ -1427,7 +1432,8 @@ function show_upgrade_history() {
       # A `-' may be matched by including it as the first or last character in #
       # the set.                                                               #
       ##########################################################################
-      [[ "${REMOVED_PACKAGE}" =~ "^.+/(.+)-([^-]+)-[^-]+-[^-]+-upgraded-([-0-9,:]+)$" ]] && {
+      if [[ "${REMOVED_PACKAGE}" =~ "^.+/(.+)-([^-]+)-[^-]+-[^-]+-upgraded-([-0-9,:]+)$" ]]
+      then
         #                             pkg- vers--- arch- rev--          timestamp--
         PACKAGE="${BASH_REMATCH[1]}"
         VERSION="${BASH_REMATCH[2]}"
@@ -1437,15 +1443,19 @@ function show_upgrade_history() {
         shopt -s extglob
         NEW_PACKAGES=(${GLOB})
         shopt -u extglob
-        [ ${#NEW_PACKAGES[*]} -ne 1 ] && {
+        if [ ${#NEW_PACKAGES[*]} -ne 1 ]
+	then
           echo -e "${FUNCNAME}(): ${WRN}warning${RST}: there seems to be more than one package with the same name \`${HL}${PACKAGE}${RST}'!" 1>&2
           continue
-        }
-        [[ "${NEW_PACKAGES[0]}" =~ "^.+/.+-([^-]+)-[^-]+-[^-]+$" ]] && NEW_VERSION="${BASH_REMATCH[1]}"
+	fi
+        if [[ "${NEW_PACKAGES[0]}" =~ "^.+/.+-([^-]+)-[^-]+-[^-]+$" ]]
+	then
+	  NEW_VERSION="${BASH_REMATCH[1]}"
+	fi
         echo "${TIMESTAMP}:|${PACKAGE}|${VERSION}|->|${NEW_VERSION}"
-      } || {
+      else
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: error in regular expression or package name \`${REMOVED_PACKAGE##*/}'!" 1>&2
-      }
+      fi
     done | sort
     shopt -u nullglob
   } | column -t -s '|'
@@ -1454,7 +1464,7 @@ function show_upgrade_history() {
 ################################################################################
 function usage() {
   cat <<- EOF
-	slackware security patcher *BETA*
+	slackware security patcher
 	usage: ${0} [ACTION] [OPTIONS]
 
 	  actions:
@@ -1524,9 +1534,9 @@ function print_configuration() {
   (( ${SHOW_DESCRIPTION} )) && echo -e "  SHOW_DESCRIPTION:\t${HL}true${RST}" || echo -e "  SHOW_DESCRIPTION:\t${HL}false${RST}"
   echo -e "  PKG_LIST_MODE:\t${HL}${PKG_LIST_MODE}${RST}"
   echo -e "\nmirrors:"
-  for ((I=0; I<=$[${#MIRRORS[*]}-1]; I++))
+  for ((I=0; I<${#MIRRORS[*]}; I++))
   do
-    echo "  ${MIRRORS[${I}]}"
+    echo "  ${MIRRORS[I]}"
   done
   echo -e "\nfunctions:"
   declare -f 2>/dev/null | sed -n '/^.* ().$/s/^/  /p'
@@ -1543,10 +1553,11 @@ function sanity_checks() {
   ##############################################################################
   # ARE WE ROOT?                                                               #
   ##############################################################################
-  [ ${UID} -ne 0 -o "x${USER}" != "xroot" ] && {
+  if [ ${UID} -ne 0 -o "x${USER}" != "xroot" ]
+  then
     echo "${FUNCNAME}(): error: you must be root to update stuff!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
   ##############################################################################
   # WORK DIR EXISTS AND IS WRITEABLE?                                          #
   ##############################################################################
@@ -1561,10 +1572,16 @@ function sanity_checks() {
   ##############################################################################
   # SLACKWARE VERSION                                                          #
   ##############################################################################
-  [ -z "${VERSION}" ] && {
+  if [ ! -f /etc/slackware-version ]
+  then
     echo "${FUNCNAME}(): error: \`/etc/slackware-version' not found!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
+  if [ -z "${VERSION}" ]
+  then
+    echo "${FUNCNAME}(): error: error parsing the \`/etc/slackware-version' file!" 1>&2
+    return ${RET_FAILED}
+  fi
   [[ "${VERSION}" =~ "^[0-9]+\.[0-9]+$" ]] || {
     echo "${FUNCNAME}(): error: couldn't determine Slackware's version!" 1>&2
     return ${RET_FAILED}
@@ -1595,10 +1612,11 @@ EOF
     --keyring "${GPG_KEYRING}" \
     --no-default-keyring \
     --fingerprint "Slackware Linux Project <security@slackware.com>" | awk '/Key fingerprint/{sub(/^.+= /, "");print}'`
-  [ "x${PRIMARY_KEY_FINGERPRINT}" != "x${FINGERPRINT}" ] && {
+  if [ "x${PRIMARY_KEY_FINGERPRINT}" != "x${FINGERPRINT}" ]
+  then
     echo "${FUNCNAME}(): error: Slackware's primary key fingerprint differs from the one that ${SWSP%\.sh} knows!?!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
   [[ "${COLUMNS}" =~ "^[0-9]+$" ]] || {
     echo -e "${FUNCNAME}(): ${WRN}warning${RST}: couldn't determine screen width, defaulting to 80!" 1>&2
     COLUMNS=80
@@ -1635,7 +1653,10 @@ function update_advisories() {
   local    SSA
   local -i WGET_TIMEOUT=10
   local -i WGET_RETRIES=1
-  [ ! -d "${WORK_DIR}/advisories/${YEAR}" ] && mkdir -pv "${WORK_DIR}/advisories/${YEAR}"
+  if [ ! -d "${WORK_DIR}/advisories/${YEAR}" ]
+  then
+    mkdir -pv "${WORK_DIR}/advisories/${YEAR}"
+  fi
   echo "${FUNCNAME}(): updating Slackware security advisories..."
   # we define more strict timeouts and retries here, because this function is not THAT important.
   #wget --quiet --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --output-document=- "${URL}" | sed -n 's/^.\+\([0-9]\{4\}-[0-9]\+-[0-9]\+\).\+\(slackware-security\.[0-9]\+\).\+\s\+\(.\+\)\s\+(\(SSA:[0-9-]\+\).\+$/\1 \2 \3 \4/p' 1>"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
@@ -1672,7 +1693,7 @@ function update_advisories() {
 ################################################################################
 [ ${#} -eq 0 ] && {
   usage
-  exit 0
+  exit ${RET_OK}
 }
 ################################################################################
 # output file descriptors:                                                     #
@@ -1707,7 +1728,7 @@ do
     "P")
       # this needs to be done before the sanity_checks()
       fetch_and_import_PGP_key
-      exit 0
+      exit ${RET_OK}
     ;;
     "s") ACTION="print_stats"	;;
     "S") SKIP_VERSION_TEST=1	;;
@@ -1716,7 +1737,7 @@ do
     "x") set -x			;;
     *)
       echo -e "${ERR}error${RST}: illegal option -- ${OPTARG}" 1>&2
-      exit 1
+      exit ${RET_FAILED}
     ;;
   esac
 done
@@ -1750,7 +1771,7 @@ case "${ACTION}" in
   "update")        security_update            ;;
   "usage")
     usage
-    exit 0
+    exit ${RET_OK}
   ;;
 esac
 # if swsp detected kernel updates amongst the upgraded packages,               #
@@ -1765,4 +1786,4 @@ fi
 # and then for some totally unnecessary information!-)                         #
 ################################################################################
 echo -e "\nscript finished in ${HL}${SECONDS}${RST} second(s)."
-exit 0
+exit ${RET_OK}
