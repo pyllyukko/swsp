@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Jul 09
+# modified:	2012 Jul 16
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -1254,9 +1254,13 @@ EOF
         # print a message of successful upgrade, also log it if USE_SYSLOG=1.
         if (( ! ${DRY_RUN} ))
         then
-	  MESSAGE="successfully upgraded package \`${PKG_NAME}' from ${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV} to ${PKG_VERSION}-${PKG_REV}"
+	  #MESSAGE="successfully upgraded package \`${PKG_NAME}' from ${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV} to ${PKG_VERSION}-${PKG_REV}"
+	  MESSAGE="successfully upgraded package \`${PKG_NAME}' to version ${PKG_VERSION}-${PKG_REV}"
 	  # arithmetic - http://www.gnu.org/software/bash/manual/bashref.html#Conditional-Constructs
-	  (( ${USE_SYSLOG} )) && logger -t "${0##*/}" "${FUNCNAME}(): ${MESSAGE}"
+	  if (( ${USE_SYSLOG} ))
+	  then
+	    logger -t "${0##*/}" "${FUNCNAME}(): ${MESSAGE}"
+	  fi
 	  echo "${MESSAGE}" 1>&4
 	fi
       ;;
