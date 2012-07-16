@@ -1082,7 +1082,7 @@ function print_upgrade_summary() {
       I++, J=I+1
     ))
     do
-      echo "    ${J}: ${FAILED_PACKAGES[${I}]}"
+      echo "    ${J}: ${FAILED_PACKAGES[I]}"
     done
   fi
 
@@ -1254,7 +1254,7 @@ EOF
         # print a message of successful upgrade, also log it if USE_SYSLOG=1.
         if (( ! ${DRY_RUN} ))
         then
-	  #MESSAGE="successfully upgraded package \`${PKG_NAME}' from ${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV} to ${PKG_VERSION}-${PKG_REV}"
+	  # NOTE: LOCAL_* variables are not bound at this point.
 	  MESSAGE="successfully upgraded package \`${PKG_NAME}' to version ${PKG_VERSION}-${PKG_REV}"
 	  # arithmetic - http://www.gnu.org/software/bash/manual/bashref.html#Conditional-Constructs
 	  if (( ${USE_SYSLOG} ))
@@ -1266,9 +1266,13 @@ EOF
       ;;
       1)
 	echo -e "  ${FUNCNAME}(): ${ERR}error${RST}: couldn't upgrade package \`${HL}${PKG_NAME}${RST}'!" 1>&3
-	[ "${PKG_LIST_MODE}" = "ChangeLog" ] && echo -e "  ${HL}tip${RST}: you could try to upgrade with \`${HL}./${SWSP} -u -f ftp${RST}'." 1>&3
+	#if [ "${PKG_LIST_MODE}" = "ChangeLog" ]
+	#then
+	#  echo -e "  ${HL}tip${RST}: you could try to upgrade with \`${HL}./${SWSP} -u -f ftp${RST}'." 1>&3
+	#fi
 	echo "failed to upgrade package \`${PKG_NAME}'!" 1>&4
-	FAILED_PACKAGES[${#FAILED_PACKAGES[*]}]="${PKG_NAME}"
+	#FAILED_PACKAGES[${#FAILED_PACKAGES[*]}]="${PKG_NAME}"
+	FAILED_PACKAGES+=("${PKG_NAME}")
       ;;
       # FATAL ERROR                                                            #
       ${RET_FERROR})
