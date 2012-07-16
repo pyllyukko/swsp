@@ -28,11 +28,11 @@
 #   - fetch the patches/FILE_LIST		file from $MAIN_MIRROR FTP
 #   - fetch the patches/CHECKSUMS.md5		file from $MAIN_MIRROR FTP
 #   - fetch the patches/CHECKSUMS.md5.asc	file from $MAIN_MIRROR FTP
-#   - verify the PGP signature of CHECKSUMS.md5
-#   - verify the FILE_LIST MD5 from CHECKSUMS.md5
+#   - verify the PGP signature of	CHECKSUMS.md5
+#   - verify the FILE_LIST MD5 from	CHECKSUMS.md5
 #   - at this point we should be confident that the patch list is authentic
 #   - read all available packages from FILE_LIST into $PACKAGES[] array
-
+#
 #   - go through the $PACKAGES[] array:
 #     - check if the package in question is installed on the local system
 #     - if $SELECT_UPDATES_INDIVIDUALLY is 1, let user choose whether to add
@@ -49,7 +49,7 @@
 #       exactly same
 #   - add suitable packages to the $UPDATES[] array
 #   - print a brief summary about the packages in the $UPDATES[] array
-
+#
 #   - start processing the $UPDATES[] array:
 #     - try to fetch the SSA ID for the patch from www.slackware.com
 #     - check if the patch is a kernel upgrade, so we can notify the user that
@@ -164,11 +164,12 @@
 #    2010-2011   -- plenty of changes, i just haven't documented them=)        #
 #                                                                              #
 ################################################################################
-[ ${BASH_VERSINFO[0]} -lt 3 ] && {
+if [ ${BASH_VERSINFO[0]} -lt 3 ]
+then
   echo -e "error: bash version < 3, this script might not work properly!" 1>&2
   echo    "       you can bypass this check by commenting out lines $[${LINENO}-2]-$[${LINENO}+2]." 1>&2
   exit 1
-}
+fi
 set -u
 # we need this to stay compatible with different versions of slackware!
 if [ ${BASH_VERSINFO[0]} -eq 4 ]
@@ -752,7 +753,7 @@ function upgrade_package_from_mirror() {
 
   for ((I=0; I<$[${#MIRRORS[*]}]; I++))
   do
-    get_file "${MIRRORS[${I}]}/${FTP_PATH_SUFFIX}/${PACKAGE}" || continue
+    get_file "${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE}" || continue
     # 21.3.2008: here we go with the static return codes=)                     #
     # 21.8.2009: strip possible directories                                    #
     #echo "${FUNCNAME}(): DEBUG: PACKAGE=\"${PACKAGE}\" PACKAGE_BASENAME=\"${PACKAGE_BASENAME}\""
@@ -929,10 +930,11 @@ function process_packages() {
     # no such package installed, no need to update
     [ ${#LOCAL_FILES[*]} -eq 0 ] && continue
 
-    [ ${#LOCAL_FILES[*]} -gt 1 ] && {
+    if [ ${#LOCAL_FILES[*]} -gt 1 ]
+    then
       echo -e "${FUNCNAME}(): ${WRN}warning${RST}:\n  multiple packages with the same name,\n  refusing to guess which one to upgrade (${HL}${PKG_NAME}${RST})!" 1>&2
       continue
-    }
+    fi
     split_package_name "${LOCAL_FILES[0]}" "LOCAL_PKG"
     if [ "x${PKG_NAME}" != "x${LOCAL_PKG_NAME}" ]
     then
@@ -946,7 +948,7 @@ function process_packages() {
       #echo "${FUNCNAME}(): DEBUG: PACKAGES[\$I]=${PACKAGES[${I}]}"
       [ "x${PKG_VERSION}" = "x${LOCAL_PKG_VERSION}" -a "x${PKG_REV}" = "x${LOCAL_PKG_REV}" ] && continue
       echo "package details:"
-      echo    "  update [$[${I}+1]/${#PACKAGES[*]}] ${HL}${PKG_NAME}${RST}:"
+      echo    "  update [$((I+1))/${#PACKAGES[*]}] ${HL}${PKG_NAME}${RST}:"
       #echo -e "    name:\t${PKG_NAME}"
       echo -e "    available:"
       echo -e "      version:\t${HL}${PKG_VERSION}${RST}"
@@ -1105,10 +1107,10 @@ function security_update()
   local    PKG_VERSION
   local    PKG_ARCH
   local    PKG_REV
-  local    LOCAL_PKG_NAME
-  local    LOCAL_PKG_VERSION
-  local    LOCAL_PKG_ARCH
-  local    LOCAL_PKG_REV
+  #local    LOCAL_PKG_NAME
+  #local    LOCAL_PKG_VERSION
+  #local    LOCAL_PKG_ARCH
+  #local    LOCAL_PKG_REV
 
   #local -a UPDATES=()
   local    UPDATE
@@ -1213,7 +1215,7 @@ EOF
     echo -e "\ngoing to update the following ${HL}${#UPDATES[*]}${RST} package(s):" 1>&3
     for ((I=0; I<${#UPDATES[*]}; I++))
     do
-      UPDATE="${UPDATES[${I}]}"
+      UPDATE="${UPDATES[I]}"
       UPDATE_BASENAME="${UPDATE##*/}"
       echo "  ${UPDATE_BASENAME}" 1>&3
     done
@@ -1227,7 +1229,7 @@ EOF
     # 21.8.2009:                                                               #
     # UPDATE could be "linux-2.6.27.31/kernel-source-2.6.27.31_smp-noarch-2"   #
     # -> UPDATE_BASENAME would be "kernel-source-2.6.27.31_smp-noarch-2"       #
-    UPDATE="${UPDATES[${I}]}"
+    UPDATE="${UPDATES[I]}"
     UPDATE_BASENAME="${UPDATE##*/}"
     split_package_name "${UPDATE_BASENAME}" "PKG"
     echo -e "${HL}update${RST} [$[${I}+1]/${#UPDATES[*]}]: updating package ${HL}${PKG_NAME}${RST} to ${HL}${PKG_VERSION}${RST}-${HL}${PKG_REV}${RST}" 1>&3
@@ -1238,10 +1240,16 @@ EOF
     #   nice to use associative arrays for that. but if we use those, we break
     #   the backwards compatibility.
     SSA_ID=`find_ssa "${UPDATE}"`
-    [ -n "${SSA_ID}" ] && echo -e "  SSA ID: ${HL}${SSA_ID}${RST}" 1>&3
+    if [ -n "${SSA_ID}" ]
+    then
+      echo -e "  SSA ID: ${HL}${SSA_ID}${RST}" 1>&3
+    fi
 
     # see if it might be a kernel update, so we can display a notice banner on the summary
-    [[ "${PKG_NAME}" =~ "kernel" ]] && KERNEL_UPGRADE=1
+    if [[ "${PKG_NAME}" =~ "kernel" ]]
+    then
+      KERNEL_UPGRADE=1
+    fi
 
     ############################################################################
     # NOTE: ADD package-version-arch-revision_slack${VERSION}                  #
@@ -1254,7 +1262,7 @@ EOF
         # print a message of successful upgrade, also log it if USE_SYSLOG=1.
         if (( ! ${DRY_RUN} ))
         then
-	  # NOTE: LOCAL_* variables are not bound at this point.
+	  # NOTE: LOCAL_PKG_* variables are not bound at this point.
 	  MESSAGE="successfully upgraded package \`${PKG_NAME}' to version ${PKG_VERSION}-${PKG_REV}"
 	  # arithmetic - http://www.gnu.org/software/bash/manual/bashref.html#Conditional-Constructs
 	  if (( ${USE_SYSLOG} ))
@@ -1789,7 +1797,10 @@ esac
 if (( ${KERNEL_UPGRADE} ))
 then
   echo -e "\n${HL}notice${RST}: kernel updates"
-  [ -n "${KERNEL_UPGRADE_README}" ] && echo "        there seems to be a README available at ${KERNEL_UPGRADE_README}, i suggest you read it."
+  if [ -n "${KERNEL_UPGRADE_README}" ]
+  then
+    echo "        there seems to be a README available at ${KERNEL_UPGRADE_README}, i suggest you read it."
+  fi
   echo -n $'\n'
 fi
 ################################################################################
