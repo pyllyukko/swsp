@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Jul 16
+# modified:	2012 Aug 16
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -533,7 +533,8 @@ function gpg_verify() {
   #   $2 = primary key fingerprint                                             #
   # return                                                                     #
   #   0: file successfully verified                                            #
-  #   1: something wen't wrong                                                 #
+  #   1: file failed to verify                                                 #
+  #   2: error                                                                 #
   ##############################################################################
   local    SIGFILE
   local    FILE_TO_VERIFY
@@ -550,23 +551,21 @@ function gpg_verify() {
   fi
   # </just_in_case>                                                            #
 
-  #echo "${FUNCNAME}(): DEBUG:"
-  #echo "  FILE_TO_VERIFY=${FILE_TO_VERIFY}"
-  #echo "  SIGFILE=${SIGFILE}"
-  #echo "${FUNCNAME}(): DEBUG: \${1:(-4)}: ${1:(-4)}"
-
-  if [ ! -f "${FILE_TO_VERIFY}" ]
+  # sanity checks
+  if [ ${#} -ne 2 -o -z "${1}" -o -z "${2}" ]
+  then
+    echo -e "${FUNCNAME}(): ${ERR}error${RST}: wrong amount of parameters! that means there's an error in this script." 1>&2
+    return ${RET_ERROR}
+  elif [ ! -f "${FILE_TO_VERIFY}" ]
   then
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: file \`${FILE_TO_VERIFY}' does not exist!" 1>&2
-    return ${RET_FAILED}
+    return ${RET_ERROR}
   elif [ ! -f "${SIGFILE}" ]
   then
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: sigfile \`${SIGFILE}' does not exist!" 1>&2
-    return ${RET_FAILED}
+    return ${RET_ERROR}
   fi
-  echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP..." 1>&3
-  # print a newline so gpgv output is on it's own lines...
-  #(( ${PRINT_WGET_OUTPUT} )) && echo -n $'\n' 1>&3
+  echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP:" 1>&3
   ##############################################################################
   # GPG FAQ:                                                                   #
   # If the signature file has the same base name as the package file,          #
@@ -575,30 +574,18 @@ function gpg_verify() {
   # given (less the .sig or .asc extension).                                   #
   ##############################################################################
   echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
-  # NOTE:
-  #   we could leave the gpgv output even without PRINT_WGET_OUTPUT, since it
-  #   has useful information. namely the timestamp.
-  #   "gpgv: Signature made Sat 16 Jun 2012 07:21:45 PM EEST using DSA key ID 40102233"
 
-  # old version (output -> fd#5)
-  #gpgv --quiet --logger-fd 5 "${SIGFILE}"
-
-  # current, quiet output always since it's quite useful.
+  # show gpgv quiet output always, since it's quite useful. namely the timestamp.
   gpgv --quiet "${SIGFILE}"
   RET=${?}
-  #RET=${PIPESTATUS[0]}
-  case "${RET}" in
-    0)
-      #(( ! ${PRINT_WGET_OUTPUT} )) && echo -e "${HL}ok${RST}!" 1>&3
-      true
-    ;;
-    *)
-      echo -e "${ERR}failed${RST} (code ${RET})!" 1>&3
-      # WE CHANGE THE NON-ZERO RETURN CODE TO 1, since this function can't     #
-      # return with fatal error                                                #
-      RET=${RET_FAILED}
-    ;;
-  esac
+  if [ ${RET} -ne 0 ]
+  then
+    echo -e "${ERR}failed${RST} (code ${RET})!" 1>&3
+    # WE CHANGE THE NON-ZERO RETURN CODE TO 1, since this function can't     #
+    # return with fatal error                                                #
+    RET=${RET_FAILED}
+  fi
+
   return ${RET}
 } # gpg_verify()
 ################################################################################
