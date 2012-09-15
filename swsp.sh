@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Aug 16
+# modified:	2012 Sep 15
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -576,8 +576,8 @@ function gpg_verify() {
   echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
 
   # show gpgv quiet output always, since it's quite useful. namely the timestamp.
-  gpgv --quiet "${SIGFILE}"
-  RET=${?}
+  gpgv --quiet "${SIGFILE}" 2>&1 | sed 's/^/    /'
+  RET=${PIPESTATUS[0]}
   if [ ${RET} -ne 0 ]
   then
     echo -e "${ERR}failed${RST} (code ${RET})!" 1>&3
