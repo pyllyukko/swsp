@@ -5,7 +5,7 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Sep 15
+# modified:	2012 Sep 29
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
@@ -15,6 +15,7 @@
 #   - sed                                                                      #
 #                                                                              #
 #  tested with (at least) the following slackware versions:                    #
+#    - 14.0                                                                    #
 #    - 13.37                                                                   #
 #    - 13.1                                                                    #
 #    - 12.2                                                                    #
@@ -748,20 +749,21 @@ function upgrade_package_from_mirror() {
     case ${?} in
       ${RET_OK})
         # dry-run first to check for any problems
-	echo -n $'  dry-run:\n    ' 1>&3
+	echo -n $'  upgradepkg dry-run:\n    ' 1>&3
 	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return ${RET_FAILED}
 	if (( ${DRY_RUN} ))
 	then
 	  # dry-run mode, so we stop here.
 	  return ${RET_OK}
 	else
-          echo -e "  ${HL}notice${RST}: logging the upgrade process to \`${WORK_DIR}/${PACKAGE_BASENAME}.log'." 1>&3
-          echo -en "  upgrading package..." 1>&3
+          #echo -e "  ${HL}notice${RST}: logging the upgrade process to \`${WORK_DIR}/${PACKAGE_BASENAME}.log'." 1>&3
+          echo -e "  upgrading package..." 1>&3
 	  #upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" &> "${WORK_DIR}/${PACKAGE_BASENAME}.log" && {
-	  upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" | tee "${WORK_DIR}/${PACKAGE_BASENAME}.log" 1>&5
+	  #upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" | tee "${WORK_DIR}/${PACKAGE_BASENAME}.log" 1>&5
+	  upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" | awk '/^[A-Z][a-z]/{printf "    %s\n", $0;}/^[+|]/{printf "    %s\n", $0;}'
 	  if [ ${PIPESTATUS[0]} -eq 0 ]
 	  then
-            echo -e "${HL}ok${RST}!" 1>&3
+            #echo -e "${HL}ok${RST}!" 1>&3
             ####################################################################
 	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
             ####################################################################
@@ -769,7 +771,8 @@ function upgrade_package_from_mirror() {
 	    UPGRADED_PACKAGES+=("${PACKAGE_BASENAME}")
 	    return ${RET_OK}
 	  else
-	    echo -e "${ERR}FAILED${RST}, check the log in \`${HL}${WORK_DIR}/${PACKAGE_BASENAME}.log${RST}'!" 1>&3
+	    #echo -e "${ERR}FAILED${RST}, check the log in \`${HL}${WORK_DIR}/${PACKAGE_BASENAME}.log${RST}'!" 1>&3
+	    echo -e "    ${ERR}FAILED${RST}!" 1>&3
             return ${RET_FAILED}
 	  fi # if [ ${PIPESTATUS[0]} -eq 0 ]
 	fi # if (( ${DRY_RUN} ))
@@ -1177,8 +1180,8 @@ function security_update()
   esac # "${PKG_LIST_MODE}"
   if [ ${#PACKAGES[*]} -eq 0 ]
   then
+    echo -e "${ERR}failed${RST}!" 1>&3
     cat 0<<-EOF 1>&3
-	${ERR}failed${RST}!
 	  0 packages found, this could mean three things:
 	  a) there really is no security updates available
 	  - or -
