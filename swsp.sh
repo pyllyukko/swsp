@@ -5,8 +5,6 @@
 # pyllyukko <at> maimed <dot> org                                              #
 # http://maimed.org/~pyllyukko/                                                #
 #                                                                              #
-# modified:	2012 Oct 10
-#                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
 #   - wget                                                                     #
