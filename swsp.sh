@@ -1369,23 +1369,6 @@ function list_updates() {
   return ${RET_OK}
 } # list_updates()
 ################################################################################
-function check_for_updates() {
-  ##############################################################################
-  # returns RET_OK || RET_FAILED                                               #
-  ##############################################################################
-  local -a MD5SUMS=(
-    `md5sum "${0}" 2>/dev/null | awk '{print $1}'`
-    `wget --quiet --output-document=- http://maimed.org/~pyllyukko/files/swsp.sh 2>/dev/null | md5sum | awk '{print $1}'`
-  )
-  if [ ${#MD5SUMS[*]} -ne 2 -o ${#MD5SUMS[0]} -ne 32 -o ${#MD5SUMS[1]} -ne 32 ]
-  then
-    echo "${FUNCNAME}(): error at line $[${LINENO}-3]!" 1>&2
-    return ${RET_FAILED}
-  fi
-  [ "x${MD5SUMS[0]}" != "x${MD5SUMS[1]}" ] && echo "versions differ!" || echo "versions match!"
-  return ${RET_OK}
-} # check_for_updates()
-################################################################################
 # TODO: ChangeLog is not currently updated!
 function print_patch_stats() {
   # print_patch_stats() -- 9.8.2009                                            #
@@ -1481,7 +1464,6 @@ function usage() {
 	    -P	 fetch and import Slackware's PGP key
 	    -s   print patch statistics
 	    -u	 update
-	    -U	 check for swsp updates
 
 	  options:
 	    -f m list mode where m = ftp|ChangeLog|FILE_LIST
@@ -1738,7 +1720,6 @@ do
     "s") ACTION="print_stats"	;;
     "S") SKIP_VERSION_TEST=1	;;
     "u") ACTION="update"	;;
-    "U") ACTION="check_updates"	;;
     "x") set -x			;;
     *)
       echo -e "${ERR}error${RST}: illegal option -- ${OPTARG}" 1>&2
@@ -1768,7 +1749,6 @@ sanity_checks || exit ${RET_FAILED}
 ################################################################################
 case "${ACTION}" in
   "advisories")    update_advisories          ;;
-  "check_updates") check_for_updates          ;;
   "history")       show_upgrade_history       ;;
   "list_updates")  list_updates               ;;
   "print_config")  print_configuration | more ;;
