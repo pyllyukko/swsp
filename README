@@ -1,0 +1,22 @@
+Slackware security patcher (swsp)
+
+This is a tool to keep your Slackware Linux installation up-to-date with
+security patches.
+
+- What?
+
+  - A tool to keep your Slackware Linux installation up-to-date with security patches
+
+- Why?
+
+  - Well, when I started writing this, there just wasn't any tools to do this
+  - ...Nowadays there is. But I think my tool is still needed, because it puts
+    emphasis on integrity and security in general.
+  - It's the only tool I use for this task. It's the only tool I trust, because
+    I wrote it. And I'm not just being cocky, I'm just paranoid.
+
+- Notes:
+
+  - Run this manually. Always. Running something like this from cron, will
+    eventually get you compromised. There will always be something that will
+    fail, eventually. Do not trust automation when it comes to security.
