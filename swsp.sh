@@ -538,6 +538,7 @@ function gpg_verify() {
   local    SIGFILE
   local    FILE_TO_VERIFY
   local -i RET
+  local    CHECKSUMS_NEW_TS
 
   # <just_in_case>                                                             #
   if [ "x${1:(-4)}" = "x.asc" ]
@@ -563,6 +564,17 @@ function gpg_verify() {
   then
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: sigfile \`${SIGFILE}' does not exist!" 1>&2
     return ${RET_ERROR}
+  fi
+
+  if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
+  then
+    CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/CHECKSUMS.md5.asc" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
+    CHECKSUMS_NEW_TS=$( date --date="${CHECKSUMS_NEW_TS}" +%s )
+    #echo "DEBUG: new timestamp=${CHECKSUMS_OLD_TS}"
+    if [ -n "${CHECKSUMS_OLD_TS}" -a ${CHECKSUMS_NEW_TS} -lt ${CHECKSUMS_OLD_TS} ]
+    then
+      echo -e "  ${WRN}warning${RST}: PGP timestamp of current/latest CHECKSUMS.md5 is older than the previous known!" 1>&2
+    fi
   fi
   echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP:" 1>&3
   ##############################################################################
@@ -1744,6 +1756,12 @@ else
   declare -r RCP="\033[u"
 fi
 sanity_checks || exit ${RET_FAILED}
+if [ -f "${WORK_DIR}/CHECKSUMS.md5" -a -f "${WORK_DIR}/CHECKSUMS.md5.asc" ]
+then
+  CHECKSUMS_OLD_TS=$( gpgv "${WORK_DIR}/CHECKSUMS.md5.asc" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
+  CHECKSUMS_OLD_TS=$( date --date="${CHECKSUMS_OLD_TS}" +%s )
+  #echo "DEBUG: old timestamp=${CHECKSUMS_OLD_TS}"
+fi
 ################################################################################
 # ...THEN DECIDE WHAT TO DO!                                                   #
 ################################################################################
