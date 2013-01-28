@@ -505,6 +505,7 @@ function md5_verify() {
   #set -x
   grep "^[0-9a-f]\{32\}  ${SIGFILE}$" "${WORK_DIR}/patches/CHECKSUMS.md5" | md5sum -c | sed 's/^/    /'
   MD5_RET=${PIPESTATUS[1]}
+  popd 1>/dev/null
   if [ ${MD5_RET} -eq 0 ]
   then
     return ${RET_OK}
