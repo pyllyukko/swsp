@@ -351,8 +351,8 @@ function get_file() {
   #  5.4.2008: TODO: detect if we're called from a function, and apply the '  '#
   #                  prefix accordingly                                        #
   # input:                                                                     #
-  #   $1 = mirror base path                                                    #
-  #   $2 = relative URI to file                                                #
+  #   $1 = url_to_file                                                         #
+  #   $2 = cut dirs depth (optional)                                           #
   # return                                                                     #
   #   0: ok                                                                    #
   #   1: failed (for any reason)                                               #
