@@ -492,7 +492,7 @@ function md5_verify() {
     return ${RET_FERROR}
   fi
 
-  echo -en "  comparing MD5 checksums for file \`${HL}${SIGFILE_BASENAME}${RST}'..." 1>&3
+  echo -e "  comparing MD5 checksums for file \`${HL}${SIGFILE_BASENAME}${RST}':" 1>&3
   # 19.9.2009: why not use awk?                                                #
   # 14.1.2010: old: `sed -n "/\/${SIGFILE}$/s/^\(.*\)[[:space:]]\+.*$/\1/p" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
   # 14.1.2010: new: sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5"
@@ -501,9 +501,23 @@ function md5_verify() {
   # example line from CHECKSUMS.md5:
   # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
   # $SIGFILE could include /'s so we use `:' with sed                          #
+  pushd "${WORK_DIR}/patches" 1>/dev/null
+  #set -x
+  grep "^[0-9a-f]\{32\}  ${SIGFILE}$" "${WORK_DIR}/patches/CHECKSUMS.md5" | md5sum -c | sed 's/^/    /'
+  MD5_RET=${PIPESTATUS[1]}
+  if [ ${MD5_RET} -eq 0 ]
+  then
+    return ${RET_OK}
+  else
+    return ${RET_FAILED}
+  fi
+  #set +x
+
+  # TODO: OBSOLETE CODE BELOW½!!!
+
   MD5SUMS=(
-    $( sed -n 's:^\([0-9a-f]\{32\}\) \{2\}.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null )
-    $( md5sum "${WORK_DIR}/${SIGFILE_BASENAME}" 2>/dev/null | awk '{print $1}' )
+    $( sed -n 's:^\([0-9a-f]\{32\}\) \{2\}.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/patches/CHECKSUMS.md5" 2>/dev/null )
+    $( md5sum "${WORK_DIR}/patches/${SIGFILE}" 2>/dev/null | awk '{print $1}' )
   )
   # sanity check... better safe than sorry                                     #
   if [ ${#MD5SUMS[*]} -ne 2 -o \
