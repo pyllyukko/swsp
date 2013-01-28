@@ -361,7 +361,8 @@ function get_file() {
   local -i BYTES=0
   local -i WGET_RET=0
   local -a TIMESTAMPS
-  local -i DIR_DEPTH
+  #local -i DIR_DEPTH
+  local -i CUT_DIRS=0
 
   if [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]]
   then
@@ -371,14 +372,21 @@ function get_file() {
     local HOST="${BASH_REMATCH[2]}"
     local DIR="${BASH_REMATCH[3]}"
     local FILE="${BASH_REMATCH[4]}"
-    DIR_DEPTH=$( sed 's:/\+: :g' 0<<<"${DIR}" | wc --words )
-    echo "DEBUG: ${DIR}"
-    echo "DEBUG: ${FILE}"
-    echo "DEBUG: depth=${DIR_DEPTH}"
+    #DIR_DEPTH=$( sed 's:/\+: :g' 0<<<"${DIR}" | wc --words )
+    #echo "DEBUG: ${DIR}"
+    #echo "DEBUG: ${FILE}"
+    #echo "DEBUG: depth=${DIR_DEPTH}"
   else
     echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
     return ${RET_FAILED}
   fi
+  if [ ${#} -eq 2 ]
+  then
+    let CUT_DIRS+=${2}
+  fi
+  echo "DEBUG: ${FUNCNAME}():"
+  echo "  CUT_DIRS=${CUT_DIRS}"
+  echo "  URL=${1}"
 
   ##############################################################################
   # NOTE: ADD FILE://                                                          #
@@ -387,14 +395,14 @@ function get_file() {
   case "${PROTO}" in
     # TODO: https
     "ftp"|"http")
-      TIMESTAMPS=()
+      #TIMESTAMPS=()
       echo -e "  fetching file: \`${HL}${FILE}${RST}' from: ${HL}${HOST}${RST}" 1>&3
       # if the file already exists, take the timestamp. we use this to detect
       # if wget downloaded a newer file.
-      if [ -f "${WORK_DIR}/${FILE}" ]
-      then
-	TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
-      fi
+      #if [ -f "${WORK_DIR}/${FILE}" ]
+      #then
+      #  TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      #fi
       ##########################################################################
       # wget(1):                                                               #
       # When running Wget with -N, with or without -r, the decision as to      #
@@ -402,23 +410,24 @@ function get_file() {
       # and remote timestamp and size of the file.                             #
       ##########################################################################
       # TODO: use --cut-dirs with wget
-      wget -nv --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
+      wget -nv -nH -x --cut-dirs=${CUT_DIRS} --directory-prefix="${WORK_DIR}" --timestamping "${1}" 2>&5
       WGET_RET=${?}
-      if [ -f "${WORK_DIR}/${FILE}" ]
-      then
-	TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
-      fi
+      #if [ -f "${WORK_DIR}/${FILE}" ]
+      #then
+      #  TIMESTAMPS[${#TIMESTAMPS[*]}]=`stat -c %Y "${WORK_DIR}/${FILE}"`
+      #fi
 
       if [ ${WGET_RET} -eq 0 ]
       then
         # detect whether we downloaded anything
-        if [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ]
-	then
-          echo "  server file no newer than local file" 1>&3
-	else
-          BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
-          echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
-	fi
+        #if [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ]
+	#then
+        #  echo "  server file no newer than local file" 1>&3
+	#else
+        #  BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
+        #  echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
+        echo -e "  download ${HL}succeeded${RST}" 1>&3
+	#fi
       else
         echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
         RET=${RET_FAILED}
@@ -454,29 +463,43 @@ function md5_verify() {
   #   $RET_FAILED
   #   $RET_FERROR if CHECKSUMS.md5 can't be verified
   # 25.6.2011: TODO: change the SIGFILE_BASENAME variable name
-  local -a MD5SUMS
   local    SIGFILE="${1}"
   local    SIGFILE_BASENAME="${2}"
   local -i RET
+  local    MD5_RET
+
+  #echo "DEBUG: ${FUNCNAME}():"
+  #echo "  SIGFILE=${SIGFILE}"
+  #echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
 
   # few checks
-  if [ ! -f "${WORK_DIR}/CHECKSUMS.md5" ]
+  #if [ ! -f "${WORK_DIR}/CHECKSUMS.md5" ]
+  #then
+  #  get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5" || {
+  #    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 missing and failed to download!" 1>&2
+  #    return ${RET_FERROR}
+  #  }
+  #elif [ ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ]
+  #then
+  #  get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5.asc" || {
+  #    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc missing and failed to download!" 1>&2
+  #    return ${RET_FERROR}
+  #  }
+  #fi
+  if [ ! -f "${WORK_DIR}/patches/CHECKSUMS.md5" ]
   then
-    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5" || {
-      echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 missing and failed to download!" 1>&2
-      return ${RET_FERROR}
-    }
-  elif [ ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ]
+    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 missing and failed to download!" 1>&2
+    return ${RET_FERROR}
+  elif [ ! -f "${WORK_DIR}/patches/CHECKSUMS.md5.asc" ]
   then
-    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5.asc" || {
-      echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc missing and failed to download!" 1>&2
-      return ${RET_FERROR}
-    }
+    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc missing and failed to download!" 1>&2
+    return ${RET_FERROR}
   fi
-  [ ! -f "${WORK_DIR}/${SIGFILE_BASENAME}" ] && {
+  if [ ! -f "${WORK_DIR}/patches/${SIGFILE}" ]
+  then
     echo "  ${FUNCNAME}(): error: file \`${SIGFILE_BASENAME}' does not exist!" 1>&2
     return ${RET_FAILED}
-  }
+  fi
   ##############################################################################
   # if we can't verify CHECKSUMS file, we can't use it to compare MD5s         #
   # so we'll return with fatal error and abort the whole upgrade procedure     #
@@ -484,7 +507,7 @@ function md5_verify() {
   # if either of these is true...                                              #
   if \
     ${CHECKSUMS_VERIFIED} || \
-    gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
+    gpg_verify "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
   then
     #echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
     CHECKSUMS_VERIFIED=true
@@ -494,16 +517,9 @@ function md5_verify() {
   fi
 
   echo -e "  comparing MD5 checksums for file \`${HL}${SIGFILE_BASENAME}${RST}':" 1>&3
-  # 19.9.2009: why not use awk?                                                #
-  # 14.1.2010: old: `sed -n "/\/${SIGFILE}$/s/^\(.*\)[[:space:]]\+.*$/\1/p" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null`
-  # 14.1.2010: new: sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5"
-
-  #echo "${FUNCNAME}(): DEBUG: SIGFILE=\"${SIGFILE}\""
   # example line from CHECKSUMS.md5:
   # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
-  # $SIGFILE could include /'s so we use `:' with sed                          #
   pushd "${WORK_DIR}/patches" 1>/dev/null
-  #set -x
   grep "^[0-9a-f]\{32\}  ${SIGFILE}$" "${WORK_DIR}/patches/CHECKSUMS.md5" | md5sum -c | sed 's/^/    /'
   MD5_RET=${PIPESTATUS[1]}
   popd 1>/dev/null
@@ -558,11 +574,14 @@ function gpg_verify() {
     return ${RET_ERROR}
   fi
 
+  echo "DEBUG: ${FUNCNAME}():"
+  echo "  FILE_TO_VERIFY=${FILE_TO_VERIFY}"
+
   if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
   then
     CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/CHECKSUMS.md5.asc" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
     CHECKSUMS_NEW_TS=$( date --date="${CHECKSUMS_NEW_TS}" +%s )
-    #echo "DEBUG: new timestamp=${CHECKSUMS_OLD_TS}"
+    echo "DEBUG: new CHECKSUMS timestamp=${CHECKSUMS_OLD_TS}"
     set +u
     if [ -n "${CHECKSUMS_OLD_TS}" ] && [ ${CHECKSUMS_NEW_TS} -lt ${CHECKSUMS_OLD_TS} ]
     then
@@ -612,11 +631,11 @@ function verify_package() {
   local    SIGFILE="${1}.asc"
   local    SIGFILE_BASENAME="${SIGFILE##*/}"
 
-  #echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
+  echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
 
   # can't verify this package at all? return RET_ERROR and go on to the next p #
-  [ -f "${WORK_DIR}/${SIGFILE_BASENAME}" ] || \
-    get_file "${MAIN_MIRROR}/${FTP_PATH_SUFFIX}/${SIGFILE}" || \
+  [ -f "${WORK_DIR}/patches/${SIGFILE_BASENAME}" ] || \
+    get_file "${MAIN_MIRROR}/${FTP_PATH_SUFFIX}/${SIGFILE}" 3 || \
       return ${RET_ERROR}
 
   # do we have the files, do they verify?                                      #
@@ -645,7 +664,7 @@ function verify_package() {
   #fi
 
   # are the files new enough?                                                  #
-  if ! grep --quiet "${SIGFILE}$" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null
+  if ! grep --quiet "${SIGFILE}$" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>/dev/null
   then
     # no? get the new ones...                                                  #
     echo -e "  ${HL}notice${RST}: current \`CHECKSUMS.md5' doesn't include a hash for \`${SIGFILE_BASENAME%-*-*}', downloading a new copy"
@@ -659,7 +678,7 @@ function verify_package() {
     CHECKSUMS_VERIFIED=false
     # we should now have the newest CHECKSUMS, does it include a hash for the  #
     # current package?                                                         #
-    grep --quiet "${SIGFILE}$" "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null || {
+    grep --quiet "${SIGFILE}$" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>/dev/null || {
       echo -e "${FUNCNAME}(): ${WRN}warning${RST}: CHECKSUMS.md5 doesn't include hash for \`${SIGFILE_BASENAME}'!"
       # we can't upgrade the package without the hash                          #
       return ${RET_ERROR}
@@ -667,9 +686,13 @@ function verify_package() {
   fi
 
   # we search with the full path (e.g.: "linux-2.6.27.31/kernel-modules-smp-2.6.27.31_smp-i686-2.tgz.asc")
+  echo "DEBUG: ${FUNCNAME}():"
+  echo "  SIGFILE=${SIGFILE}"
+  echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
   md5_verify "${1}" "${1##*/}"							|| return ${RET_FAILED}
   md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"					|| return ${RET_FAILED}
-  gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
+  #gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
+  gpg_verify "${WORK_DIR}/patches/${SIGFILE}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
 ################################################################################
@@ -716,6 +739,7 @@ function upgrade_package_from_mirror() {
   local    PACKAGE_NAME
   local    AWK_SEARCH
   local    PACKAGE="${1}"
+  local -i CUT_DIRS
   local    PACKAGE_BASENAME="${PACKAGE##*/}"
   ##############################################################################
   # NOTE: FIX ME!!! ADD LOCAL PACKAGE CHECK!                                   #
@@ -746,7 +770,14 @@ function upgrade_package_from_mirror() {
 
   for ((I=0; I<$[${#MIRRORS[*]}]; I++))
   do
-    get_file "${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE}" || continue
+    CUT_DIRS=$( sed 's:/\+: :g' 0<<<"${MIRRORS[I]}" | wc --words )
+    echo "DEBUG: ${FUNCNAME}():"
+    #echo "  ${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE}"
+    echo "  MIRROR=${MIRRORS[I]}"
+    echo "  CUT_DIRS=${CUT_DIRS}"
+    echo "  PACKAGE=${PACKAGE}"
+    echo "  PACKAGE_BASENAME=${PACKAGE_BASENAME}"
+    get_file "${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE#./}" ${CUT_DIRS} || continue
     # 21.3.2008: here we go with the static return codes=)                     #
     # 21.8.2009: strip possible directories                                    #
     #echo "${FUNCNAME}(): DEBUG: PACKAGE=\"${PACKAGE}\" PACKAGE_BASENAME=\"${PACKAGE_BASENAME}\""
@@ -755,7 +786,7 @@ function upgrade_package_from_mirror() {
       ${RET_OK})
         # dry-run first to check for any problems
 	echo -n $'  upgradepkg dry-run:\n    ' 1>&3
-	upgradepkg --dry-run "${WORK_DIR}/${PACKAGE_BASENAME}" || return ${RET_FAILED}
+	upgradepkg --dry-run "${WORK_DIR}/patches/${PACKAGE}" || return ${RET_FAILED}
 	if (( ${DRY_RUN} ))
 	then
 	  # dry-run mode, so we stop here.
@@ -763,14 +794,13 @@ function upgrade_package_from_mirror() {
 	else
           echo -e "  upgrading package..." 1>&3
 	  # print the informational lines out of the upgradepkg output.
-	  upgradepkg "${WORK_DIR}/${PACKAGE_BASENAME}" | awk '/^[A-Z][a-z]/{printf "    %s\n", $0;}/^[+|]/{printf "    %s\n", $0;}'
+	  upgradepkg "${WORK_DIR}/patches/${PACKAGE}" | awk '/^[A-Z][a-z]/{printf "    %s\n", $0;}/^[+|]/{printf "    %s\n", $0;}'
 	  if [ ${PIPESTATUS[0]} -eq 0 ]
 	  then
             #echo -e "${HL}ok${RST}!" 1>&3
             ####################################################################
 	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
             ####################################################################
-	    #UPGRADED_PACKAGES[${#UPGRADED_PACKAGES[*]}]="${PACKAGE_BASENAME}"
 	    UPGRADED_PACKAGES+=("${PACKAGE_BASENAME}")
 	    return ${RET_OK}
 	  else
@@ -1089,7 +1119,7 @@ function security_update()
   # security_update() function                                                 #
   #                                                                            #
   # possible return values: return RET_OK || RET_FAILED                        #
-  declare  FTP_PATH_SUFFIX="${SLACKWARE}-${VERSION}/patches/packages"
+  declare  FTP_PATH_SUFFIX="${SLACKWARE}-${VERSION}/patches"
   local -i RET=${RET_OK}
   local -i I
   local -a PACKAGES
@@ -1150,7 +1180,8 @@ function security_update()
       # download the FILE_LIST and CHECKSUMS, so we can also verify the FILE_LIST
       for FILE in "FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
       do
-        get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${FILE}"
+	echo "DEBUG: ${FUNCNAME}()"
+        get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${FILE}" 3
       done
       CHECKSUMS_VERIFIED=false
       # verify the FILE_LIST first
@@ -1165,7 +1196,7 @@ function security_update()
 	if [ ${#REPLY[*]} -lt 8 ]
 	then
           continue
-	elif [[ "${REPLY[7]}" =~ "^\./packages/(.+\.t[gx]z)$" ]]
+	elif [[ "${REPLY[7]}" =~ "^(\./packages/.+\.t[gx]z)$" ]]
 	then
           #PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
 	  PACKAGES+=("${BASH_REMATCH[1]}")
@@ -1174,7 +1205,7 @@ function security_update()
 	then
 	  KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
 	fi
-      done 0<"${WORK_DIR}/FILE_LIST"
+      done 0<"${WORK_DIR}/patches/FILE_LIST"
     ;;
     *)
       echo "${FUNCNAME}(): error: invalid mode \`${PKG_LIST_MODE}'!"
@@ -1751,11 +1782,11 @@ else
   declare -r RCP="\033[u"
 fi
 sanity_checks || exit ${RET_FAILED}
-if [ -f "${WORK_DIR}/CHECKSUMS.md5" -a -f "${WORK_DIR}/CHECKSUMS.md5.asc" ]
+if [ -f "${WORK_DIR}/patches/CHECKSUMS.md5" -a -f "${WORK_DIR}/patches/CHECKSUMS.md5.asc" ]
 then
-  CHECKSUMS_OLD_TS=$( gpgv "${WORK_DIR}/CHECKSUMS.md5.asc" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
+  CHECKSUMS_OLD_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
   CHECKSUMS_OLD_TS=$( date --date="${CHECKSUMS_OLD_TS}" +%s )
-  #echo "DEBUG: old timestamp=${CHECKSUMS_OLD_TS}"
+  echo "DEBUG: old CHECKSUMS timestamp=${CHECKSUMS_OLD_TS}"
 fi
 ################################################################################
 # ...THEN DECIDE WHAT TO DO!                                                   #
