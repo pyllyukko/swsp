@@ -197,7 +197,8 @@ declare -ra UPDATE_BLACKLIST=("bash")
 declare -r  UMASK="077"
 declare -r  GPG_KEYRING="trustedkeys.gpg"
 # 2.1.2011: use slackware.osuosl.org, the "another primary FTP site"
-declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
+#declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
+declare -r  MAIN_MIRROR="ftp://elektroni.phys.tut.fi/"
 #declare -r  MAIN_MIRROR="ftp://slackware.osuosl.org/pub/slackware"
 #declare -r  MAIN_MIRROR="http://ftp.belnet.be/packages/slackware"
 ################################################################################
@@ -285,7 +286,7 @@ function register_prog() {
   return ${RET_OK}
 } # register_prog()
 ################################################################################
-for PROGRAM in gpg gpgv md5sum upgradepkg awk gawk sed grep echo rm mkdir egrep eval cut wget cat column date
+for PROGRAM in gpg gpgv md5sum upgradepkg awk gawk sed grep echo rm mkdir egrep eval cut wget cat column date wc
 do
   register_prog "${PROGRAM}" || exit ${RET_FAILED}
 done
@@ -349,7 +350,8 @@ function get_file() {
   #  5.4.2008: TODO: detect if we're called from a function, and apply the '  '#
   #                  prefix accordingly                                        #
   # input:                                                                     #
-  #   $1 = url_to_file                                                         #
+  #   $1 = mirror base path                                                    #
+  #   $2 = relative URI to file                                                #
   # return                                                                     #
   #   0: ok                                                                    #
   #   1: failed (for any reason)                                               #
@@ -358,6 +360,7 @@ function get_file() {
   local -i BYTES=0
   local -i WGET_RET=0
   local -a TIMESTAMPS
+  local -i DIR_DEPTH
 
   if [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]]
   then
@@ -367,6 +370,10 @@ function get_file() {
     local HOST="${BASH_REMATCH[2]}"
     local DIR="${BASH_REMATCH[3]}"
     local FILE="${BASH_REMATCH[4]}"
+    DIR_DEPTH=$( sed 's:/\+: :g' 0<<<"${DIR}" | wc --words )
+    echo "DEBUG: ${DIR}"
+    echo "DEBUG: ${FILE}"
+    echo "DEBUG: depth=${DIR_DEPTH}"
   else
     echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
     return ${RET_FAILED}
@@ -454,13 +461,13 @@ function md5_verify() {
   # few checks
   if [ ! -f "${WORK_DIR}/CHECKSUMS.md5" ]
   then
-    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5" || {
+    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5" || {
       echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 missing and failed to download!" 1>&2
       return ${RET_FERROR}
     }
   elif [ ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ]
   then
-    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/CHECKSUMS.md5" || {
+    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5.asc" || {
       echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc missing and failed to download!" 1>&2
       return ${RET_FERROR}
     }
@@ -495,7 +502,7 @@ function md5_verify() {
   # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
   # $SIGFILE could include /'s so we use `:' with sed                          #
   MD5SUMS=(
-    $( sed -n 's:^\([0-9a-f]\{32\}\)[[:space:]]\+\..*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null )
+    $( sed -n 's:^\([0-9a-f]\{32\}\) \{2\}.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/CHECKSUMS.md5" 2>/dev/null )
     $( md5sum "${WORK_DIR}/${SIGFILE_BASENAME}" 2>/dev/null | awk '{print $1}' )
   )
   # sanity check... better safe than sorry                                     #
@@ -661,7 +668,8 @@ function verify_package() {
     for FILE in "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
     do
       # no CHECKSUMS = no MD5s = no updates = FATAL ERROR!                     #
-      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}" || return ${RET_FERROR}
+      #get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}" || return ${RET_FERROR}
+      get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${FILE}" || return ${RET_FERROR}
     done
     CHECKSUMS_VERIFIED=false
     # we should now have the newest CHECKSUMS, does it include a hash for the  #
@@ -1155,13 +1163,13 @@ function security_update()
       # 21.8.2009: TODO: fix (to use) FTP_PATH_SUFFIX                          #
 
       # download the FILE_LIST and CHECKSUMS, so we can also verify the FILE_LIST
-      for FILE in "patches/FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
+      for FILE in "FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
       do
-        get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}"
+        get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${FILE}"
       done
       CHECKSUMS_VERIFIED=false
       # verify the FILE_LIST first
-      md5_verify "/patches/FILE_LIST" "FILE_LIST" || {
+      md5_verify "./FILE_LIST" "FILE_LIST" || {
         return ${RET_FAILED}
       }
       echo -en "reading packages from \`${HL}FILE_LIST${RST}'..." 1>&3
