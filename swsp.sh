@@ -361,7 +361,6 @@ function get_file() {
   local -i BYTES=0
   local -i WGET_RET=0
   local -a TIMESTAMPS
-  #local -i DIR_DEPTH
   local -i CUT_DIRS=0
 
   if [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]]
@@ -372,10 +371,6 @@ function get_file() {
     local HOST="${BASH_REMATCH[2]}"
     local DIR="${BASH_REMATCH[3]}"
     local FILE="${BASH_REMATCH[4]}"
-    #DIR_DEPTH=$( sed 's:/\+: :g' 0<<<"${DIR}" | wc --words )
-    #echo "DEBUG: ${DIR}"
-    #echo "DEBUG: ${FILE}"
-    #echo "DEBUG: depth=${DIR_DEPTH}"
   else
     echo "${FUNCNAME}(): ${ERR}error${RST}: malformed url!" 1>&2
     return ${RET_FAILED}
@@ -384,9 +379,9 @@ function get_file() {
   then
     let CUT_DIRS+=${2}
   fi
-  echo "DEBUG: ${FUNCNAME}():"
-  echo "  CUT_DIRS=${CUT_DIRS}"
-  echo "  URL=${1}"
+  #echo "DEBUG: ${FUNCNAME}():"
+  #echo "  CUT_DIRS=${CUT_DIRS}"
+  #echo "  URL=${1}"
 
   ##############################################################################
   # NOTE: ADD FILE://                                                          #
@@ -574,8 +569,8 @@ function gpg_verify() {
     return ${RET_ERROR}
   fi
 
-  echo "DEBUG: ${FUNCNAME}():"
-  echo "  FILE_TO_VERIFY=${FILE_TO_VERIFY}"
+  #echo "DEBUG: ${FUNCNAME}():"
+  #echo "  FILE_TO_VERIFY=${FILE_TO_VERIFY}"
 
   if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
   then
@@ -686,9 +681,9 @@ function verify_package() {
   fi
 
   # we search with the full path (e.g.: "linux-2.6.27.31/kernel-modules-smp-2.6.27.31_smp-i686-2.tgz.asc")
-  echo "DEBUG: ${FUNCNAME}():"
-  echo "  SIGFILE=${SIGFILE}"
-  echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
+  #echo "DEBUG: ${FUNCNAME}():"
+  #echo "  SIGFILE=${SIGFILE}"
+  #echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
   md5_verify "${1}" "${1##*/}"							|| return ${RET_FAILED}
   md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"					|| return ${RET_FAILED}
   #gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
@@ -771,12 +766,12 @@ function upgrade_package_from_mirror() {
   for ((I=0; I<$[${#MIRRORS[*]}]; I++))
   do
     CUT_DIRS=$( sed 's:/\+: :g' 0<<<"${MIRRORS[I]}" | wc --words )
-    echo "DEBUG: ${FUNCNAME}():"
-    #echo "  ${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE}"
-    echo "  MIRROR=${MIRRORS[I]}"
-    echo "  CUT_DIRS=${CUT_DIRS}"
-    echo "  PACKAGE=${PACKAGE}"
-    echo "  PACKAGE_BASENAME=${PACKAGE_BASENAME}"
+    #echo "DEBUG: ${FUNCNAME}():"
+    ##echo "  ${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE}"
+    #echo "  MIRROR=${MIRRORS[I]}"
+    #echo "  CUT_DIRS=${CUT_DIRS}"
+    #echo "  PACKAGE=${PACKAGE}"
+    #echo "  PACKAGE_BASENAME=${PACKAGE_BASENAME}"
     get_file "${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE#./}" ${CUT_DIRS} || continue
     # 21.3.2008: here we go with the static return codes=)                     #
     # 21.8.2009: strip possible directories                                    #
@@ -1180,7 +1175,7 @@ function security_update()
       # download the FILE_LIST and CHECKSUMS, so we can also verify the FILE_LIST
       for FILE in "FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
       do
-	echo "DEBUG: ${FUNCNAME}()"
+	#echo "DEBUG: ${FUNCNAME}()"
         get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${FILE}" 3
       done
       CHECKSUMS_VERIFIED=false
