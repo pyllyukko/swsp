@@ -185,6 +185,7 @@ fi
 # these URLs.                                                                  #
 ################################################################################
 declare -ra MIRRORS=(
+  'ftp://mirrors.slackware.com/slackware/'
   'http://ftp.belnet.be/packages/slackware/'
   'ftp://elektroni.phys.tut.fi/'
   'ftp://ftp.funet.fi/pub/mirrors/ftp.slackware.com/pub/'
