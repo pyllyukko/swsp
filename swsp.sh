@@ -198,8 +198,8 @@ declare -ra UPDATE_BLACKLIST=("bash")
 declare -r  UMASK="077"
 declare -r  GPG_KEYRING="trustedkeys.gpg"
 # 2.1.2011: use slackware.osuosl.org, the "another primary FTP site"
-#declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
-declare -r  MAIN_MIRROR="ftp://elektroni.phys.tut.fi/"
+declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
+#declare -r  MAIN_MIRROR="ftp://elektroni.phys.tut.fi/"
 #declare -r  MAIN_MIRROR="ftp://slackware.osuosl.org/pub/slackware"
 #declare -r  MAIN_MIRROR="http://ftp.belnet.be/packages/slackware"
 ################################################################################
