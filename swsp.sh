@@ -508,42 +508,11 @@ function md5_verify() {
   popd 1>/dev/null
   if [ ${MD5_RET} -eq 0 ]
   then
-    return ${RET_OK}
-  else
-    return ${RET_FAILED}
-  fi
-  #set +x
-
-  # TODO: OBSOLETE CODE BELOW½!!!
-
-  MD5SUMS=(
-    $( sed -n 's:^\([0-9a-f]\{32\}\) \{2\}.*'"${SIGFILE}"'$:\1:p' "${WORK_DIR}/patches/CHECKSUMS.md5" 2>/dev/null )
-    $( md5sum "${WORK_DIR}/patches/${SIGFILE}" 2>/dev/null | awk '{print $1}' )
-  )
-  # sanity check... better safe than sorry                                     #
-  if [ ${#MD5SUMS[*]} -ne 2 -o \
-       ${#MD5SUMS[0]} -ne 32 -o \
-       ${#MD5SUMS[1]} -ne 32 ]
-  then
-    ############################################################################
-    # NOTE: OF COURSE THIS SHOULD NEVER HAPPEN!                                #
-    ############################################################################
-    echo -e "${ERR}error${RST}!" 1>&3
-    echo "${FUNCNAME}(): error between lines $[LINENO-12]-$[LINENO-9]!" 1>&2
-    return ${RET_ERROR}
-  fi
-  if [ "x${MD5SUMS[0]}" = "x${MD5SUMS[1]}" ]
-  then
-    ############################################################################
-    # SINCE BOTH MD5'S ARE THE SAME, WE RANDOMIZE WHICH ONE TO PRINT=)         #
-    ############################################################################
-    #echo -e "${HL}match${RST}!\n    MD5 checksum: ${HL}${MD5SUMS[$[${RANDOM}%2]]}${RST}" 1>&3
-    echo -e "${HL}match${RST} (MD5: ${HL}${MD5SUMS[$[RANDOM%2]]}${RST})!" 1>&3
     RET=${RET_OK}
   else
-    echo -e "${ERR}mismatch${RST}!" 1>&3
     RET=${RET_FAILED}
   fi
+
   return ${RET}
 } # md5_verify
 ################################################################################
