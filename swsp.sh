@@ -626,7 +626,7 @@ function verify_package() {
   local    SIGFILE="${1}.asc"
   local    SIGFILE_BASENAME="${SIGFILE##*/}"
 
-  echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
+  #echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
 
   # can't verify this package at all? return RET_ERROR and go on to the next p #
   [ -f "${WORK_DIR}/patches/${SIGFILE_BASENAME}" ] || \
