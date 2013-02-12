@@ -179,7 +179,7 @@ then
   shopt -s compat31
 fi
 ################################################################################
-# OFFICIAL MIRRORS IN FINLAND (8.8.2006)                                       #
+# mirrors updated 6.2.2013                                                     #
 #                                                                              #
 # TODO: we could try to use /etc/slackpkg/mirrors                              #
 #                                                                              #
@@ -188,11 +188,10 @@ fi
 # these URLs.                                                                  #
 ################################################################################
 declare -ra MIRRORS=(
+  'ftp://slackware.osuosl.org/pub/slackware/'
+  'ftp://ftp.sunet.se/pub/os/Linux/distributions/slackware/'
+  'ftp://ftp.belnet.be/mirror/ftp.slackware.com/'
   'ftp://mirrors.slackware.com/slackware/'
-  'http://ftp.belnet.be/packages/slackware/'
-  'ftp://elektroni.phys.tut.fi/'
-  'ftp://ftp.funet.fi/pub/mirrors/ftp.slackware.com/pub/'
-  'ftp://openbsd.fi/slackware/'
 )
 # TODO: use same dirs as slackpkg (/var/cache/packages)
 declare -r  WORK_DIR_ROOT="/var/cache/swsp"
