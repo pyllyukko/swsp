@@ -123,6 +123,9 @@
 #   - 2.3.2012: downgrade?
 #   - 1.5.2012: replace some of the echo's with printf's to make it more
 #               readable (too much variables)
+#   - 6.2.2013: installpkg --md5sum
+#   - 10.2.2013: compare "^PACKAGE MD5SUM:" in /var/log/packages/* against
+#                CHECKSUMS.md5
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
