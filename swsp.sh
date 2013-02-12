@@ -248,6 +248,8 @@ export LANG=en_US
 # LANG=C   ?
 # LC_ALL=C ?
 export LC_COLLATE=C
+# from http://wiki.bash-hackers.org/scripting/debuggingtips#making_xtrace_more_useful:
+export PS4='+(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:+${FUNCNAME[0]}(): }'
 umask "${UMASK}" || {
   echo "error at line $[${LINENO}-1], couldn't change umask!" 1>&2
   exit ${RET_FAILED}
