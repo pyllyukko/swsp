@@ -699,7 +699,7 @@ function verify_package() {
 } # verify_package()
 ################################################################################
 # TODO: this function is not currently used at all...
-function print_update_description() {
+function print_update_description_NOT_IN_USE() {
   ##############################################################################
   # TODO: this could/should be done with just plain awk                        #
   ##############################################################################
