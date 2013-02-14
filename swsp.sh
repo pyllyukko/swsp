@@ -694,7 +694,6 @@ function verify_package() {
   #echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
   md5_verify "${1}" "${1##*/}"							|| return ${RET_FAILED}
   md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"					|| return ${RET_FAILED}
-  #gpg_verify "${WORK_DIR}/${SIGFILE_BASENAME}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
   gpg_verify "${WORK_DIR}/patches/${SIGFILE}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
