@@ -15,6 +15,26 @@ security patches.
   - It's the only tool I use for this task. It's the only tool I trust, because
     I wrote it. And I'm not just being cocky, I'm just paranoid.
 
+- Features:
+
+  - Cycles through several mirrors while trying to download patches. Many times
+    the patches have not yet propagated to every mirror when you want to
+    install them, so this tries to find the patch on one of the listed mirrors.
+  - Great emphasis on integrity and verification. Also, the list of available
+    patches is verified. I've tried to design and implement this tool in such a
+    way, that it would be safe to use also in very hostile environments. No
+    guarantees though.
+    - Uses the available MD5 and PGP methods to do this
+  - Tries to guess the SSA ID for the patch in question
+  - Dry-run mode
+  - Tests each patch with dry-run before upgrading
+  - Version and revision comparison for the patches, so if you would happen to
+    have a newer version of the software installed on your system, it shouldn't
+    work.
+  - Can print some statistics of the patches installed
+  - Can list the installed patches in human readable format (from
+    /var/log/removed_packages)
+
 - Notes:
 
   - Run this manually. Always. Running something like this from cron, will
