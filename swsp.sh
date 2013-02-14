@@ -487,11 +487,11 @@ function md5_verify() {
   #fi
   if [ ! -f "${WORK_DIR}/patches/CHECKSUMS.md5" ]
   then
-    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 missing and failed to download!" 1>&2
+    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 is nowhere to be seen!" 1>&2
     return ${RET_FERROR}
   elif [ ! -f "${WORK_DIR}/patches/CHECKSUMS.md5.asc" ]
   then
-    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc missing and failed to download!" 1>&2
+    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc is nowhere to be been!" 1>&2
     return ${RET_FERROR}
   fi
   if [ ! -f "${WORK_DIR}/patches/${SIGFILE}" ]
