@@ -794,7 +794,7 @@ function upgrade_package_from_mirror() {
 	  # dry-run mode, so we stop here.
 	  return ${RET_OK}
 	else
-          echo -e "  upgrading package..." 1>&3
+          echo -e "  upgrading package:" 1>&3
 	  # print the informational lines out of the upgradepkg output.
 	  upgradepkg "${WORK_DIR}/patches/${PACKAGE}" | awk '/^[A-Z][a-z]/{printf "    %s\n", $0;}/^[+|]/{printf "    %s\n", $0;}'
 	  if [ ${PIPESTATUS[0]} -eq 0 ]
