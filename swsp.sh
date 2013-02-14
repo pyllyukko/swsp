@@ -1550,15 +1550,18 @@ function print_configuration() {
   ##############################################################################
   # this function just prints all kinds of different configurations            #
   ##############################################################################
+  local INSTALLPKG_MD5SUM=$(grep "^MD5SUM=" /sbin/installpkg)
   echo -e "configuration:"
   echo -e "  Slackware version:\t${HL}${SLACKWARE} ${VERSION}${RST}"
   echo -e "  pid:\t\t\t${HL}$$${RST}"
   echo -e "  working directory:\t${HL}${WORK_DIR}${RST}"
   echo -e "  columns:\t\t${HL}${COLUMNS}${RST}"
   echo -e "  set flags:\t\t${HL}$-${RST}"
-  (( ${MONOCHROME} )) && echo -e "  MONOCHROME:\t\t${HL}true${RST}" || echo -e "  MONOCHROME:\t\t${HL}false${RST}"
-  (( ${SHOW_DESCRIPTION} )) && echo -e "  SHOW_DESCRIPTION:\t${HL}true${RST}" || echo -e "  SHOW_DESCRIPTION:\t${HL}false${RST}"
+  (( ${MONOCHROME} ))		&& echo -e "  MONOCHROME:\t\t${HL}true${RST}" || echo -e "  MONOCHROME:\t\t${HL}false${RST}"
+  (( ${SHOW_DESCRIPTION} ))	&& echo -e "  SHOW_DESCRIPTION:\t${HL}true${RST}" || echo -e "  SHOW_DESCRIPTION:\t${HL}false${RST}"
   echo -e "  PKG_LIST_MODE:\t${HL}${PKG_LIST_MODE}${RST}"
+  echo -e "  installpkg MD5SUM:\t${HL}${INSTALLPKG_MD5SUM}${RST}"
+
   echo -e "\nmirrors:"
   for ((I=0; I<${#MIRRORS[*]}; I++))
   do
