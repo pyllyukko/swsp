@@ -709,7 +709,7 @@ function print_update_description_NOT_IN_USE() {
   grep -q "patches/packages/${1//./\.}\.tgz" "${WORK_DIR}/ChangeLog.txt" || return ${RET_FAILED}
   PACKAGE_NAME=${1%-*-*-*}
   echo -en "  +-[ ${HL}${PACKAGE_NAME}${RST} ]"
-  [ ${COLUMNS} -lt 83 ] && local K=$[83-${COLUMNS}]
+  [ ${COLUMNS} -lt 83 ] && local K=$[83-COLUMNS]
   for ((J=0; J<=$[74-${#PACKAGE_NAME}-${K-0}]; J++))
   do
     echo -n $'-'
