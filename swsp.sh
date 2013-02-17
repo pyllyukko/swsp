@@ -1435,20 +1435,30 @@ function list_updates() {
   return ${RET_OK}
 } # list_updates()
 ################################################################################
-# TODO: ChangeLog is not currently updated!
 function print_patch_stats() {
   # print_patch_stats() -- 9.8.2009                                            #
+  local    FILE
+  local -i COUNT
+  local -a PROGRAMS=()
+  local -i PATCH_COUNT
+  local    PROGRAM
+
+  for FILE in ChangeLog.txt CHECKSUMS.md5 CHECKSUMS.md5.asc
+  do
+    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}" 3
+  done
+  #gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}" || return ${RET_FAILED}
+  md5_verify "./ChangeLog.txt" "${WORK_DIR}" "${WORK_DIR}/CHECKSUMS.md5"			|| return ${RET_FAILED}
+  echo -n $'\n'
   if [ ! -f "${WORK_DIR}/ChangeLog.txt" ]
   then
     echo "${FUNCNAME}(): error: ChangeLog not available!" 1>&2
     return ${RET_FAILED}
   fi
-  local -i COUNT=`grep -c "^patches/packages/" "${WORK_DIR}/ChangeLog.txt"`
-  local -a PROGRAMS=(`sed -n 's/^patches\/packages\/\(.\+\)-[^-]\+-[^-]\+-[^-]\+\.t[gx]z:\{0,1\}.*$/\1/p' "${WORK_DIR}/ChangeLog.txt" | sort | uniq`)
-  local    PROGRAM
-  local -i PATCH_COUNT
+  COUNT=`grep -c "^patches/packages/" "${WORK_DIR}/ChangeLog.txt"`
+  PROGRAMS=(`sed -n 's/^patches\/packages\/\(.\+\)-[^-]\+-[^-]\+-[^-]\+\.t[gx]z:\{0,1\}.*$/\1/p' "${WORK_DIR}/ChangeLog.txt" | sort | uniq`)
 
-  echo "${FUNCNAME}(): warning: ChangeLog might not be up-to-date, so the following data might not be accurate!" 1>&2
+  #echo "${FUNCNAME}(): warning: ChangeLog might not be up-to-date, so the following data might not be accurate!" 1>&2
   echo "${COUNT} patches:"
   {
     echo "program|patches|percent"
