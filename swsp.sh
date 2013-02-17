@@ -1350,7 +1350,7 @@ function read_packages_from_changelog() {
 
   awk --re-interval '/^patches\/packages\// {
     match($1, /^patches\/packages\/(.+)-([^-]+-[^-]+-[^-]+)\.t[gx]z:{0,1}.*$/, arr);
-    print "'"${FUNCNAME}"'(): DEBUG: "$1" -> "arr[1]" - "arr[2] > "/dev/stderr"
+    #print "'"${FUNCNAME}"'(): DEBUG: "$1" -> "arr[1]" - "arr[2] > "/dev/stderr"
     # we only put the newest (topmost) entry in the array                      #
     if (!(arr[1] in packages)) packages[arr[1]] = arr[2]
   } END {
