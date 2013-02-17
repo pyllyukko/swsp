@@ -1395,15 +1395,21 @@ function list_updates() {
   local    PKG_NAME
   local    AWK_SEARCH
   local -a PACKAGES
+  local    FILE
+
   echo "${FUNCNAME}(): please wait..."
-  wget -nv --timestamping --directory-prefix="${WORK_DIR}" "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/ChangeLog.txt"
-  [ ${?} -ne 0 ] && {
-    echo "${FUNCNAME}(): error: an error occurred at line $[${LINENO}-2] while wgetting the changelog!" 1>&2
-    return ${RET_FAILED}
-  }
+  for FILE in ChangeLog.txt CHECKSUMS.md5 CHECKSUMS.md5.asc
+  do
+    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}" 3
+  done
+  #gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}" || return ${RET_FAILED}
+  md5_verify "./ChangeLog.txt" "${WORK_DIR}" "${WORK_DIR}/CHECKSUMS.md5"			|| return ${RET_FAILED}
+  echo -n $'\n'
+
   PACKAGES=(`read_packages_from_changelog`) || return ${RET_FAILED}
   for PACKAGE in ${PACKAGES[*]}
   do
+    # TODO: use split_package_name()?
     PKG_NAME="${PACKAGE%-*-*-*}"
     echo -en "  +-[ $((++I)): ${HL}${PKG_NAME}${RST} ]"
     [ ${COLUMNS} -lt 83 ] && K=$[83-${COLUMNS}]
