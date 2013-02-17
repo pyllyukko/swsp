@@ -126,6 +126,7 @@
 #   - 6.2.2013: installpkg --md5sum
 #   - 10.2.2013: compare "^PACKAGE MD5SUM:" in /var/log/packages/* against
 #                CHECKSUMS.md5
+#   - 17.2.2013: remove all the commented unnecessary code
 #                                                                              #
 # changelog:                                                                   #
 #    ?. ?.????   -- initial version=)                                          #
