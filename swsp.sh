@@ -457,14 +457,22 @@ function get_files_NOT_IN_USE() {
 ################################################################################
 function md5_verify() {
   # $1 = how to find it in CHECKSUMS.md5
-  # $2 = the actual file to verify
+  # $2 = path to file
+  # $3 = CHECKSUMS.md5 file
   #
   # return:
   #   $RET_FAILED
   #   $RET_FERROR if CHECKSUMS.md5 can't be verified
-  # 25.6.2011: TODO: change the SIGFILE_BASENAME variable name
+
+  if [ ${#} -ne 3 ]
+  then
+    echo "${FUNCNAME}(): error: wrong amount of parameters!" 1>&2
+    return ${RET_ERROR}
+  fi
+
   local    SIGFILE="${1}"
-  local    SIGFILE_BASENAME="${2}"
+  #local    SIGFILE_BASENAME="${2}"
+  local    CHECKSUMS_FILE="${3}"
   local -i RET
   local    MD5_RET
 
@@ -486,18 +494,24 @@ function md5_verify() {
   #    return ${RET_FERROR}
   #  }
   #fi
-  if [ ! -f "${WORK_DIR}/patches/CHECKSUMS.md5" ]
+  if [ ! -f "${CHECKSUMS_FILE}" ]
   then
     echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 is nowhere to be seen!" 1>&2
     return ${RET_FERROR}
-  elif [ ! -f "${WORK_DIR}/patches/CHECKSUMS.md5.asc" ]
+  elif [ ! -f "${CHECKSUMS_FILE}.asc" ]
   then
     echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc is nowhere to be been!" 1>&2
     return ${RET_FERROR}
-  fi
-  if [ ! -f "${WORK_DIR}/patches/${SIGFILE}" ]
+  elif [ ! -d "${2}" ]
   then
-    echo "  ${FUNCNAME}(): error: file \`${SIGFILE_BASENAME}' does not exist!" 1>&2
+    echo "  ${FUNCNAME}(): error: directory \`${2}' does not exist!" 1>&2
+    return ${RET_FERROR}
+  fi
+  pushd "${2}" 1>/dev/null
+  if [ ! -f "${SIGFILE}" ]
+  then
+    echo "  ${FUNCNAME}(): error: file \`${SIGFILE}' does not exist!" 1>&2
+    popd 1>/dev/null
     return ${RET_FAILED}
   fi
   ##############################################################################
@@ -505,22 +519,27 @@ function md5_verify() {
   # so we'll return with fatal error and abort the whole upgrade procedure     #
   ##############################################################################
   # if either of these is true...                                              #
-  if \
-    ${CHECKSUMS_VERIFIED} || \
-    gpg_verify "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
-  then
-    #echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
-    CHECKSUMS_VERIFIED=true
-  else
+  #if \
+  #  ${CHECKSUMS_VERIFIED} || \
+  #  gpg_verify "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
+  #then
+  #  #echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
+  #  CHECKSUMS_VERIFIED=true
+  #else
+  #  echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
+  #  return ${RET_FERROR}
+  #fi
+  gpg_verify "${CHECKSUMS_FILE}.asc" "${PRIMARY_KEY_FINGERPRINT}" || {
     echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
     return ${RET_FERROR}
-  fi
+  }
 
-  echo -e "  comparing MD5 checksums for file \`${HL}${SIGFILE_BASENAME}${RST}':" 1>&3
+  echo -e "  comparing MD5 checksums for file \`${HL}${SIGFILE##*/}${RST}':" 1>&3
   # example line from CHECKSUMS.md5:
   # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
-  pushd "${WORK_DIR}/patches" 1>/dev/null
-  grep "^[0-9a-f]\{32\}  ${SIGFILE}$" "${WORK_DIR}/patches/CHECKSUMS.md5" | md5sum -c | sed 's/^/    /'
+  #pushd "${WORK_DIR}/patches" 1>/dev/null
+  pushd "${2}" 1>/dev/null
+  grep "^[0-9a-f]\{32\}  ${SIGFILE}$" "${CHECKSUMS_FILE}" | md5sum -c | sed 's/^/    /'
   MD5_RET=${PIPESTATUS[1]}
   popd 1>/dev/null
   if [ ${MD5_RET} -eq 0 ]
@@ -693,9 +712,9 @@ function verify_package() {
   #echo "DEBUG: ${FUNCNAME}():"
   #echo "  SIGFILE=${SIGFILE}"
   #echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
-  md5_verify "${1}" "${1##*/}"							|| return ${RET_FAILED}
-  md5_verify "${SIGFILE}" "${SIGFILE_BASENAME}"					|| return ${RET_FAILED}
-  gpg_verify "${WORK_DIR}/patches/${SIGFILE}" "${PRIMARY_KEY_FINGERPRINT}"	|| return ${RET_FAILED}
+  md5_verify "${1}" "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5"			|| return ${RET_FAILED}
+  md5_verify "${SIGFILE}" "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5"	|| return ${RET_FAILED}
+  gpg_verify "${WORK_DIR}/patches/${SIGFILE}" "${PRIMARY_KEY_FINGERPRINT}"		|| return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
 ################################################################################
@@ -1188,7 +1207,7 @@ function security_update()
       done
       CHECKSUMS_VERIFIED=false
       # verify the FILE_LIST first
-      md5_verify "./FILE_LIST" "FILE_LIST" || {
+      md5_verify "./FILE_LIST" "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5" || {
         return ${RET_FAILED}
       }
       echo -en "reading packages from \`${HL}FILE_LIST${RST}'..." 1>&3
