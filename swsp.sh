@@ -790,7 +790,7 @@ function upgrade_package_from_mirror() {
         #       SHOULD THIS MESSAGE BE REMOVED?!                               #
         ########################################################################
         echo -en "  ${ERR}error${RST}: package \`${HL}${1%-*-*-*}${RST}' is not authentic, removing it..." 1>&3
-        rm -fv "${WORK_DIR}/${PACKAGE}.tgz" 1>&5 && echo -e "${HL}done${RST}!" 1>&3 || echo -e "${ERR}FAILED${RST}?!" 1>&3
+        rm -fv "${WORK_DIR}/${PACKAGE}.t[gx]z" 1>&5 && echo -e "${HL}done${RST}!" 1>&3 || echo -e "${ERR}FAILED${RST}?!" 1>&3
         continue
       ;;
       ${RET_ERROR})  return ${RET_FAILED} ;;
