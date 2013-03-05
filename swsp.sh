@@ -726,7 +726,6 @@ function upgrade_package_from_mirror() {
   #   2: fatal error -- cannot upgrade any packages                            #
   ##############################################################################
   local -i I
-  local -i J=0
   local    PACKAGE_NAME
   local    PACKAGE="${1}"
   local -i CUT_DIRS
