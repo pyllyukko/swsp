@@ -297,9 +297,7 @@ do
   register_prog "${PROGRAM}" || exit ${RET_FAILED}
 done
 declare COLUMNS="${COLUMNS:-`tput cols 2>/dev/null`}"
-#declare ARCH=`uname -m`
 # TODO: we might get problems with backwards compability when slackware (32bit) upgrades to i686...
-#case "${ARCH}" in
 case "${MACHTYPE%%-*}" in
   "x86_64")	SLACKWARE="slackware64"	;;
   i?86)		SLACKWARE="slackware"	;;
