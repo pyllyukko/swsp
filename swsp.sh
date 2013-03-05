@@ -716,35 +716,6 @@ function verify_package() {
   return ${RET_OK}
 } # verify_package()
 ################################################################################
-# TODO: this function is not currently used at all...
-function print_update_description_NOT_IN_USE() {
-  ##############################################################################
-  # TODO: this could/should be done with just plain awk                        #
-  ##############################################################################
-  local    PACKAGE_NAME
-  local -i J
-  local    AWK_SEARCH
-  grep -q "patches/packages/${1//./\.}\.tgz" "${WORK_DIR}/ChangeLog.txt" || return ${RET_FAILED}
-  PACKAGE_NAME=${1%-*-*-*}
-  echo -en "  +-[ ${HL}${PACKAGE_NAME}${RST} ]"
-  [ ${COLUMNS} -lt 83 ] && local K=$[83-COLUMNS]
-  for ((J=0; J<=$[74-${#PACKAGE_NAME}-${K-0}]; J++))
-  do
-    echo -n $'-'
-  done
-  echo -n $'\n'
-  AWK_SEARCH=`echo "${1}" | sed 's/+/\\\+/g;s/\./\\\./g'`
-  awk -v columns="${COLUMNS}" '/patches\/packages\/'"${AWK_SEARCH}"'/ {
-    do {
-      if(length>columns-4)
-      $0 = substr($0, 1, columns-7)"..."
-      print "  |",$0
-      getline
-    } while ($0 !~ /+--------------------------+/ && $0 !~ /patches\/packages\//)
-  }' "${WORK_DIR}/ChangeLog.txt"
-  return ${?}
-} # print_update_description()
-################################################################################
 function upgrade_package_from_mirror() {
   ##############################################################################
   # $1 = package-version-architecture-revision                                 #
@@ -757,7 +728,6 @@ function upgrade_package_from_mirror() {
   local -i I
   local -i J=0
   local    PACKAGE_NAME
-  local    AWK_SEARCH
   local    PACKAGE="${1}"
   local -i CUT_DIRS
   local    PACKAGE_BASENAME="${PACKAGE##*/}"
@@ -768,24 +738,8 @@ function upgrade_package_from_mirror() {
   ##############################################################################
   # show package description if possible                                       #
   ##############################################################################
-  (( ${SHOW_DESCRIPTION} )) && grep -q "patches/packages/${1//./\.}\.tgz" "${WORK_DIR}/ChangeLog.txt" 2>/dev/null && {
-    PACKAGE_NAME=${1%-*-*-*}
-    echo -en "  +-[ ${HL}${PACKAGE_NAME}${RST} ]"
-    [ ${COLUMNS} -lt 83 ] && local K=$[83-${COLUMNS}]
-    for ((J=0; J<=$[74-${#PACKAGE_NAME}-${K-0}]; J++))
-    do
-      echo -n $'-'
-    done
-    echo -n $'\n'
-    AWK_SEARCH=`echo "${PACKAGE}" | sed 's/+/\\\+/g;s/\./\\\./g'`
-    awk -v columns="${COLUMNS}" '/patches\/packages\/'"${AWK_SEARCH}"'/ {
-      do {
-        if(length>columns-4)
-        $0 = substr($0, 1, columns-7)"..."
-        print "  |",$0
-        getline
-      } while ($0 !~ /+--------------------------+/ && $0 !~ /patches\/packages\//)
-    }' "${WORK_DIR}/ChangeLog.txt"
+  (( ${SHOW_DESCRIPTION} )) && grep -q "patches/packages/${1//./\.}\.t[gx]z" "${WORK_DIR}/ChangeLog.txt" 2>/dev/null && {
+    print_patch_details_from_changelog "${PACKAGE}"
   }
 
   for ((I=0; I<$[${#MIRRORS[*]}]; I++))
@@ -1386,12 +1340,7 @@ function list_updates() {
   ##############################################################################
   # UNDER CONSTRUCTION!                                                        #
   ##############################################################################
-  local -i I=0
-  local -i J
-  local -i K
   local    PACKAGE
-  local    PKG_NAME
-  local    AWK_SEARCH
   local -a PACKAGES
   local    FILE
 
@@ -1407,31 +1356,40 @@ function list_updates() {
   PACKAGES=(`read_packages_from_changelog`) || return ${RET_FAILED}
   for PACKAGE in ${PACKAGES[*]}
   do
-    # TODO: use split_package_name()?
-    PKG_NAME="${PACKAGE%-*-*-*}"
-    echo -en "  +-[ $((++I)): ${HL}${PKG_NAME}${RST} ]"
-    [ ${COLUMNS} -lt 83 ] && K=$[83-${COLUMNS}]
-    for ((J=0; J<=$[72-${#I}-${#PKG_NAME}-${K:-0}]; J++))
-    do
-      echo -n $'-'
-    done
-    echo -n $'\n'
-    ############################################################################
-    # REGEXP FRIENDLY                                                          #
-    ############################################################################
-    AWK_SEARCH=`echo "${PACKAGE}" | sed 's/+/\\\+/g;s/\./\\\./g'`
-    awk -v columns="${COLUMNS}" '/patches\/packages\/'"${AWK_SEARCH}"'/ {
-      do {
-        if(length>columns-4)
-        $0 = substr($0, 1, columns-7)"..."
-        print "  |",$0
-        getline
-      } while ($0 !~ /+--------------------------+/ && $0 !~ /patches\/packages\//)
-    }' "${WORK_DIR}/ChangeLog.txt" 2>/dev/null
+    print_patch_details_from_changelog "${PACKAGE}"
     echo -n $'\n'
   done # | less
   return ${RET_OK}
 } # list_updates()
+################################################################################
+function print_patch_details_from_changelog() {
+  # $1 = package-version-architecture-revision                                 #
+  # TODO: use split_package_name()?
+  local PKG_NAME="${1%-*-*-*}"
+  local AWK_SEARCH=$( echo "${1}" | sed 's/+/\\\+/g;s/\./\\\./g' )
+  local -i J
+  local -i K
+  #echo -en "  +-[ $((++I)): ${HL}${PKG_NAME}${RST} ]"
+  echo -en "  +-[ ${HL}${PKG_NAME}${RST} ]"
+  [ ${COLUMNS} -lt 83 ] && K=$[83-${COLUMNS}]
+  # TODO: see http://wiki.bash-hackers.org/snipplets/print_horizontal_line
+  #for ((J=0; J<=$[72-${#I}-${#PKG_NAME}-${K:-0}]; J++))
+  for ((J=0; J<=$[74-${#PKG_NAME}-${K-0}]; J++))
+  do
+    echo -n $'-'
+  done
+  echo -n $'\n'
+  awk -v columns="${COLUMNS}" '/patches\/packages\/'"${AWK_SEARCH}"'/ {
+    do {
+      if(length>columns-4)
+        $0 = substr($0, 1, columns-7)"..."
+      print "  |",$0
+      getline
+    } while ($0 !~ /+--------------------------+/ && $0 !~ /patches\/packages\//)
+  }' "${WORK_DIR}/ChangeLog.txt" 2>/dev/null
+
+  return
+} # print_patch_details_from_changelog()
 ################################################################################
 function print_patch_stats() {
   # print_patch_stats() -- 9.8.2009                                            #
