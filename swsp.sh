@@ -944,7 +944,7 @@ function process_packages() {
       #echo "${FUNCNAME}(): DEBUG: PACKAGES[\$I]=${PACKAGES[${I}]}"
       [ "x${PKG_VERSION}" = "x${LOCAL_PKG_VERSION}" -a "x${PKG_REV}" = "x${LOCAL_PKG_REV}" ] && continue
       echo "package details:"
-      echo    "  update [$((I+1))/${#PACKAGES[*]}] ${HL}${PKG_NAME}${RST}:"
+      echo -e "  update [$((I+1))/${#PACKAGES[*]}] ${HL}${PKG_NAME}${RST}:"
       #echo -e "    name:\t${PKG_NAME}"
       echo -e "    available:"
       echo -e "      version:\t${HL}${PKG_VERSION}${RST}"
