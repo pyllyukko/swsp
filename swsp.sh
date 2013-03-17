@@ -424,7 +424,10 @@ function get_file() {
 	#else
         #  BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
         #  echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
-        echo -e "  download ${HL}succeeded${RST}" 1>&3
+
+        #echo -e "  download ${HL}succeeded${RST}" 1>&3
+        true
+
 	#fi
       else
         echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
