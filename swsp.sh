@@ -532,7 +532,7 @@ function md5_verify() {
     return ${RET_FERROR}
   }
 
-  echo -e "  comparing MD5 checksums for file \`${HL}${SIGFILE##*/}${RST}':" 1>&3
+  echo -e "  comparing ${HL}MD5${RST} checksums for file \`${HL}${SIGFILE##*/}${RST}':" 1>&3
   # example line from CHECKSUMS.md5:
   # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
   #pushd "${WORK_DIR}/patches" 1>/dev/null
@@ -610,7 +610,7 @@ function gpg_verify() {
     fi
     set -u
   fi
-  echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with PGP:" 1>&3
+  echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with ${HL}PGP${RST}:" 1>&3
   ##############################################################################
   # GPG FAQ:                                                                   #
   # If the signature file has the same base name as the package file,          #
