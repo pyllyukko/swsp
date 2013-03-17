@@ -952,6 +952,7 @@ function process_packages() {
       echo    "    current:"
       echo -e "      version:\t${LOCAL_PKG_VERSION}"
       echo -e "      revision:\t${LOCAL_PKG_REV}"
+      set +u
       until [ "x${REPLY}" = "xy" -o "x${REPLY}" = "xn" ]
       do
         read -p "upgrade package \`${PKG_NAME}'? y/n: " -n 1 REPLY
@@ -964,6 +965,7 @@ function process_packages() {
           *)   echo -n $'\n' ;;
         esac
       done
+      set -u
       unset -v REPLY
     # select updates automatically
     else
