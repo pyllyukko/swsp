@@ -738,13 +738,19 @@ function upgrade_package_from_mirror() {
   ##############################################################################
   # NOTE: FIX ME!!! ADD LOCAL PACKAGE CHECK!                                   #
   ##############################################################################
-  [ -f "${WORK_DIR}/${PACKAGE}" ] && rm -fv "${WORK_DIR}/${PACKAGE}" 1>&5
+  if [ -f "${WORK_DIR}/${PACKAGE}" ]
+  then
+    rm -fv "${WORK_DIR}/${PACKAGE}" 1>&5
+  fi
   ##############################################################################
   # show package description if possible                                       #
   ##############################################################################
-  (( ${SHOW_DESCRIPTION} )) && grep -q "patches/packages/${1//./\.}\.t[gx]z" "${WORK_DIR}/ChangeLog.txt" 2>/dev/null && {
-    print_patch_details_from_changelog "${PACKAGE}"
-  }
+  # TODO: move the grep to the function
+  #(( ${SHOW_DESCRIPTION} )) && grep -q "patches/packages/${1//./\.}\.t[gx]z" "${WORK_DIR}/ChangeLog.txt" 2>/dev/null && {
+  if (( ${SHOW_DESCRIPTION} )) && grep -q "patches/packages/${PACKAGE_BASENAME//./\.}" "${WORK_DIR}/ChangeLog.txt" 2>/dev/null
+  then
+    print_patch_details_from_changelog "${PACKAGE_BASENAME}"
+  fi
 
   for ((I=0; I<$[${#MIRRORS[*]}]; I++))
   do
