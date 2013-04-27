@@ -1160,6 +1160,7 @@ function security_update()
       PACKAGES=(`read_packages_from_changelog`) || return ${RET_FAILED}
     ;;
     "FILE_LIST")
+      # TODO: fetch ChangeLog also... actually, separate the downloading and parsing.
       echo "${FUNCNAME}(): please wait..." 1>&3
       # 21.8.2009: TODO: fix (to use) FTP_PATH_SUFFIX                          #
 
