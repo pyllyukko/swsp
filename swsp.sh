@@ -537,7 +537,7 @@ function md5_verify() {
   #  echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
   #  return ${RET_FERROR}
   #fi
-  gpg_verify "${CHECKSUMS_FILE}.asc" "${PRIMARY_KEY_FINGERPRINT}" || {
+  gpg_verify "${CHECKSUMS_FILE}.asc" "${PRIMARY_KEY_FINGERPRINT}" -q || {
     echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
     return ${RET_FERROR}
   }
@@ -574,6 +574,13 @@ function gpg_verify() {
   local    FILE_TO_VERIFY
   local -i RET
   local    CHECKSUMS_NEW_TS
+  local -i QUIET=0
+
+  # quiet mode
+  if [ ${#} -eq 3 ] && [ "${3}" = "-q" ]
+  then
+    QUIET=1
+  fi
 
   # <just_in_case>                                                             #
   if [ "x${1:(-4)}" = "x.asc" ]
@@ -587,7 +594,7 @@ function gpg_verify() {
   # </just_in_case>                                                            #
 
   # sanity checks
-  if [ ${#} -ne 2 -o -z "${1}" -o -z "${2}" ]
+  if [ ${#} -lt 2 -o ${#} -gt 3 -o -z "${1}" -o -z "${2}" ]
   then
     echo -e "${FUNCNAME}(): ${ERR}error${RST}: wrong amount of parameters! that means there's an error in this script." 1>&2
     return ${RET_ERROR}
@@ -614,7 +621,10 @@ function gpg_verify() {
     set +u
     if [ -n "${CHECKSUMS_OLD_TS}" ]
     then
-      echo "  comparing PGP signature timestamps..."
+      if (( ! ${QUIET} ))
+      then
+	echo "  comparing PGP signature timestamps..."
+      fi
       if [ ${CHECKSUMS_NEW_TS} -lt ${CHECKSUMS_OLD_TS} ]
       then
         echo -e "  ${WRN}warning${RST}: PGP timestamp of current/latest CHECKSUMS.md5 is older than the previous known!" 1>&2
@@ -622,7 +632,6 @@ function gpg_verify() {
     fi
     set -u
   fi
-  echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with ${HL}PGP${RST}:" 1>&3
   ##############################################################################
   # GPG FAQ:                                                                   #
   # If the signature file has the same base name as the package file,          #
@@ -630,11 +639,18 @@ function gpg_verify() {
   # file, as GnuPG will derive the package's file name from the name           #
   # given (less the .sig or .asc extension).                                   #
   ##############################################################################
-  echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
+  if (( ${QUIET} ))
+  then
+    gpgv --quiet "${SIGFILE}" &>/dev/null
+    RET=${?}
+  else
+    echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with ${HL}PGP${RST}:" 1>&3
+    echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
 
-  # show gpgv quiet output always, since it's quite useful. namely the timestamp.
-  gpgv --quiet "${SIGFILE}" 2>&1 | sed 's/^/    /'
-  RET=${PIPESTATUS[0]}
+    # show gpgv quiet output always, since it's quite useful. namely the timestamp.
+    gpgv --quiet "${SIGFILE}" 2>&1 | sed 's/^/    /'
+    RET=${PIPESTATUS[0]}
+  fi
   if [ ${RET} -ne 0 ]
   then
     echo -e "${ERR}failed${RST} (code ${RET})!" 1>&3
