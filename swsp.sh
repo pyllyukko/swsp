@@ -464,6 +464,13 @@ function md5_verify() {
   # return:
   #   $RET_FAILED
   #   $RET_FERROR if CHECKSUMS.md5 can't be verified
+  #
+  # TODO:
+  #   make this work in batch, so we'll get cleaner output as such:
+  #   comparing MD5 checksums:
+  #     ./packages/seamonkey-solibs-2.17.1-i486-1_slack14.0.txz: OK
+  #     ./packages/seamonkey-solibs-2.17.1-i486-1_slack14.0.txz.asc: OK
+
 
   if [ ${#} -ne 3 ]
   then
