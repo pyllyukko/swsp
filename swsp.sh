@@ -241,6 +241,7 @@ declare SELECT_UPDATES_INDIVIDUALLY=0
 declare DRY_RUN=0
 declare MONOCHROME=0
 declare SKIP_VERSION_TEST=0
+declare QUIET_GPGV=0
 # /BOOLEANS
 
 export PATH="/bin:/usr/bin:/sbin"
@@ -537,7 +538,7 @@ function md5_verify() {
   #  echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
   #  return ${RET_FERROR}
   #fi
-  gpg_verify "${CHECKSUMS_FILE}.asc" "${PRIMARY_KEY_FINGERPRINT}" -q || {
+  gpg_verify "${CHECKSUMS_FILE}.asc" "${PRIMARY_KEY_FINGERPRINT}" || {
     echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
     return ${RET_FERROR}
   }
@@ -565,6 +566,7 @@ function gpg_verify() {
   # input:                                                                     #
   #   $1 = file                                                                #
   #   $2 = primary key fingerprint                                             #
+  #   $3 = -q (optional)                                                       #
   # return                                                                     #
   #   0: file successfully verified                                            #
   #   1: file failed to verify                                                 #
@@ -574,12 +576,11 @@ function gpg_verify() {
   local    FILE_TO_VERIFY
   local -i RET
   local    CHECKSUMS_NEW_TS
-  local -i QUIET=0
 
   # quiet mode
   if [ ${#} -eq 3 ] && [ "${3}" = "-q" ]
   then
-    QUIET=1
+    QUIET_GPGV=1
   fi
 
   # <just_in_case>                                                             #
@@ -621,7 +622,7 @@ function gpg_verify() {
     set +u
     if [ -n "${CHECKSUMS_OLD_TS}" ]
     then
-      if (( ! ${QUIET} ))
+      if (( ! ${QUIET_GPGV} ))
       then
 	echo "  comparing PGP signature timestamps..."
       fi
@@ -639,7 +640,7 @@ function gpg_verify() {
   # file, as GnuPG will derive the package's file name from the name           #
   # given (less the .sig or .asc extension).                                   #
   ##############################################################################
-  if (( ${QUIET} ))
+  if (( ${QUIET_GPGV} ))
   then
     gpgv --quiet "${SIGFILE}" &>/dev/null
     RET=${?}
@@ -738,8 +739,10 @@ function verify_package() {
   #echo "DEBUG: ${FUNCNAME}():"
   #echo "  SIGFILE=${SIGFILE}"
   #echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
+  QUIET_GPGV=1
   md5_verify "${1}" "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5"			|| return ${RET_FAILED}
   md5_verify "${SIGFILE}" "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5"	|| return ${RET_FAILED}
+  QUIET_GPGV=0
   gpg_verify "${WORK_DIR}/patches/${SIGFILE}" "${PRIMARY_KEY_FINGERPRINT}"		|| return ${RET_FAILED}
   return ${RET_OK}
 } # verify_package()
