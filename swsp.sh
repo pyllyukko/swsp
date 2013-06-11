@@ -230,6 +230,7 @@ declare -a  FAILED_PACKAGES
 declare     ACTION=
 declare     CHECKSUMS_VERIFIED=false
 declare -r  YEAR=$(date +%Y)
+declare     KERNEL_UPGRADE_README=""
 
 # BOOLEANS
 declare USE_SYSLOG=1
@@ -1222,7 +1223,8 @@ function security_update()
 	then
           #PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
 	  PACKAGES+=("${BASH_REMATCH[1]}")
-	# detect kernel upgrade instructions from the file list
+        # detect kernel upgrade instructions from the file list
+        # for instance: ftp://ftp.slackware.com/pub/slackware/slackware-12.2/patches/packages/linux-2.6.27.31/README
 	elif [[ "${REPLY[7]}" =~ "^\./(packages/linux-.+/README)$" ]]
 	then
 	  KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
