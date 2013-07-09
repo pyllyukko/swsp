@@ -1538,6 +1538,7 @@ function usage() {
 
 	  actions:
 	    -a   update SSA cache
+	    -c   check running processes for old library versions
 	    -d	 dry-run
 	    -h	 this help
 	    -H   show upgrade history from /var/log/removed_packages
@@ -1762,6 +1763,31 @@ function update_advisories() {
   return ${RET_OK}
 } # update_advisories()
 ################################################################################
+function search_for_old_libs() {
+  local -a PIDS=()
+  local    PID
+
+  for MAP in /proc/*/maps
+  do
+    PIDS+=( $(grep -H "lib.*(deleted)" "${MAP}" | awk -F'/' '{print$3}' | sort | uniq) )
+  done
+
+  if [ ${#PIDS[*]} -eq 0 ]
+  then
+    echo "no binaries found."
+    return 0
+  else
+    echo "the following processes might still use old versions of libraries:"
+  fi
+
+  for PID in ${PIDS[*]}
+  do
+    ps --no-headers -p "${PID}"
+    grep -H "lib.*(deleted)" "/proc/${PID}/maps" | sed 's/^/  /'
+  done
+
+} # search_for_old_libs()
+################################################################################
 if [ ${#} -eq 0 ]
 then
   usage
@@ -1780,10 +1806,11 @@ exec 4>/dev/null
 ################################################################################
 # FIRST PROCESS THE PARAMETERS...                                              #
 ################################################################################
-while getopts ":adf:hiHlmnpPsSuUx" OPTION
+while getopts ":acdf:hiHlmnpPsSuUx" OPTION
 do
   case "${OPTION}" in
     "a") ACTION="advisories"		;;
+    "c") ACTION="oldlibs"		;;
     "d") DRY_RUN=1 ACTION="update"	;;
     "f") PKG_LIST_MODE="${OPTARG}"	;;
     "h") ACTION="usage"			;;
@@ -1845,6 +1872,7 @@ case "${ACTION}" in
   "print_config")  print_configuration | more ;;
   "print_stats")   print_patch_stats          ;;
   "update")        security_update            ;;
+  "oldlibs")       search_for_old_libs        ;;
   "usage")
     usage
     exit ${RET_OK}
