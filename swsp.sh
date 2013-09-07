@@ -1704,10 +1704,18 @@ function fetch_and_import_PGP_key() {
 function print_stack() {
   # this is a debug function that can be called from other functions           #
   local -i I
+  local    caller
   echo "${FUNCNAME}(): execution call stack:"
   for ((I=0; I<${#FUNCNAME[*]}; I++))
   do
-    echo "  ${I}: ${FUNCNAME[${I}]} called from line ${BASH_LINENO[${I}]}"
+    if [ ${I} -ne $[ ${#FUNCNAME[*]} - 1 ] ]
+    then
+      # http://wiki.bash-hackers.org/commands/builtin/caller?s[]=logging#simple_stack_trace
+      caller=$( caller ${I} | awk '{print$2}' )
+    else
+      caller=""
+    fi
+    echo "  ${I}: ${FUNCNAME[${I}]} called from line ${BASH_LINENO[${I}]} ${caller}"
   done
   return ${RET_OK}
 }
