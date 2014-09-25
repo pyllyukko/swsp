@@ -197,7 +197,7 @@ declare -ra MIRRORS=(
 # TODO: use same dirs as slackpkg (/var/cache/packages)
 declare -r  WORK_DIR_ROOT="/var/cache/swsp"
 # which packages not to upgrade
-declare -ra UPDATE_BLACKLIST=("bash")
+declare -ra UPDATE_BLACKLIST=()
 declare -r  UMASK="077"
 declare -r  GPG_KEYRING="trustedkeys.gpg"
 # 2.1.2011: use slackware.osuosl.org, the "another primary FTP site"
@@ -1021,13 +1021,16 @@ function process_packages() {
       #                                                                          #
       # TODO: include slackpkg's blacklist (/etc/slackpkg/blacklist)             #
       ############################################################################
-      for BLACKLISTED in ${UPDATE_BLACKLIST[*]}
-      do
-        [ "x${PKG_NAME}" = "x${BLACKLISTED}" ] && {
-          echo -e "${FUNCNAME}(): ${HL}notice${RST}: skipping blacklisted package \`${HL}${PKG_NAME}${RST}'!" 1>&3
-          continue 2
-        }
-      done
+      if [ ${#UPDATE_BLACKLIST[*]} -ne 0 ]
+      then
+        for BLACKLISTED in ${UPDATE_BLACKLIST[*]}
+        do
+          [ "x${PKG_NAME}" = "x${BLACKLISTED}" ] && {
+            echo -e "${FUNCNAME}(): ${HL}notice${RST}: skipping blacklisted package \`${HL}${PKG_NAME}${RST}'!" 1>&3
+            continue 2
+          }
+        done
+      fi
       ############################################################################
       # SLACKWARE VERSION DETECTION                                              #
       # seamonkey-1.0.6-i486-1_slack11.0.tgz and others in slackware 12.0        #
