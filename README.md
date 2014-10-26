@@ -38,6 +38,7 @@ Features
 - Can print some statistics of the patches installed
 - Can list the installed patches in human readable format (from
   /var/log/removed_packages)
+- Option to check memory for running processes that might still have old versions of libraries in use ("*-c*")
 
 Notes
 -----
