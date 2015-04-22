@@ -625,10 +625,15 @@ function gpg_verify() {
   if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
   then
     CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
-    CHECKSUMS_NEW_TS=$( date --date="${CHECKSUMS_NEW_TS}" +%s )
+    if [ -z "${CHECKSUMS_NEW_TS}" ]
+    then
+      echo "  WARNING: could not determine (new) CHECKSUMS PGP signature timestamp" 1>&2
+    else
+      CHECKSUMS_NEW_TS=$( date --date="${CHECKSUMS_NEW_TS}" +%s )
+    fi
     #echo "DEBUG: new CHECKSUMS timestamp=${CHECKSUMS_NEW_TS}"
     set +u
-    if [ -n "${CHECKSUMS_OLD_TS}" ]
+    if [ -n "${CHECKSUMS_OLD_TS}" -a -n "${CHECKSUMS_NEW_TS}" ]
     then
       if (( ! ${QUIET_GPGV} ))
       then
@@ -638,6 +643,8 @@ function gpg_verify() {
       then
         echo -e "  ${WRN}warning${RST}: PGP timestamp of current/latest CHECKSUMS.md5 is older than the previous known!" 1>&2
       fi
+    else
+	echo "  WARNING: can not compare PGP signature timestamps..."
     fi
     set -u
   fi
