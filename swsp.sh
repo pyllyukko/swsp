@@ -624,7 +624,7 @@ function gpg_verify() {
   #       that is "patches/CHECKSUMS.md5"
   if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
   then
-    CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
+    CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
     if [ -z "${CHECKSUMS_NEW_TS}" ]
     then
       echo "  WARNING: could not determine (new) CHECKSUMS PGP signature timestamp" 1>&2
@@ -654,22 +654,24 @@ function gpg_verify() {
   # the package can also be verified by specifying just the signature          #
   # file, as GnuPG will derive the package's file name from the name           #
   # given (less the .sig or .asc extension).                                   #
+  #                                                                            #
+  # NOTE: as of gnupg 1.4.19 this is not true. at least for gpgv.              #
   ##############################################################################
   if (( ${QUIET_GPGV} ))
   then
-    gpgv --quiet "${SIGFILE}" &>/dev/null
+    gpgv --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" &>/dev/null
     RET=${?}
   else
     echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with ${HL}PGP${RST}:" 1>&3
     echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
 
     # show gpgv quiet output always, since it's quite useful. namely the timestamp.
-    gpgv --quiet "${SIGFILE}" 2>&1 | sed 's/^/    /'
+    gpgv --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" 2>&1 | sed 's/^/    /'
     RET=${PIPESTATUS[0]}
   fi
   if [ ${RET} -ne 0 ]
   then
-    echo -e "${ERR}failed${RST} (code ${RET})!" 1>&3
+    echo -e "PGP signature verification ${ERR}failed${RST} (code ${RET})!" 1>&3
     # WE CHANGE THE NON-ZERO RETURN CODE TO 1, since this function can't     #
     # return with fatal error                                                #
     RET=${RET_FAILED}
