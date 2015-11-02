@@ -1767,7 +1767,7 @@ function update_advisories() {
          ! -s "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" ]
     then
       wget --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --quiet --output-document=- "${URL}" | \
-	awk '/^-----BEGIN PGP SIGNED MESSAGE-----$/,/^-----END PGP SIGNATURE-----$/{print}' 1>"${WORK_DIR}/advisories/${YEAR}/${SSA}.txt"
+	sed -n '/-----BEGIN PGP SIGNED MESSAGE-----/,/-----END PGP SIGNATURE-----/p' | sed '1s/^.*>//' 1>"${WORK_DIR}/advisories/${YEAR}/${SSA}.txt"
       ((NEW_COUNT++))
     fi
   done 0<"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
