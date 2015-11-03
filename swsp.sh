@@ -268,6 +268,31 @@ declare -ra WGET_ERRORS=(
   "Protocol errors"
   "Server issued an error response"
 )
+RESTART_SERVICES=0
+SERVICES_TO_RESTART=()
+# this is essentially just a mapping from pacakge -> init script -> (graceful) restart command
+#declare -a OPENSSL_SERVICES=() # TODO
+declare -rA SERVICE_INIT_SCRIPTS=(
+  ["httpd"]="/etc/rc.d/rc.httpd"
+  ["openssh"]="/etc/rc.d/rc.sshd"
+  ["ntp"]="/etc/rc.d/rc.ntpd"
+  ["bind"]="/etc/rc.d/rc.bind"
+  ["sysklogd"]="/etc/rc.d/rc.syslog"
+  ["samba"]="/etc/rc.d/rc.samba"
+  ["mariadb"]="/etc/rc.d/rc.mysqld"
+  ["sendmail"]="/etc/rc.d/rc.sendmail"
+)
+# use "graceful" restart whenever possible
+declare -rA SERVICE_RESTART_COMMANDS=(
+  ["httpd"]="${SERVICE_INIT_SCRIPTS["httpd"]} graceful"
+  ["openssh"]="${SERVICE_INIT_SCRIPTS["openssh"]} restart"
+  ["ntp"]="${SERVICE_INIT_SCRIPTS["ntp"]} restart"
+  ["bind"]="${SERVICE_INIT_SCRIPTS["bind"]} restart"
+  ["sysklogd"]="${SERVICE_INIT_SCRIPTS["sysklogd"]} restart"
+  ["samba"]="${SERVICE_INIT_SCRIPTS["samba"]} restart"
+  ["mariadb"]="${SERVICE_INIT_SCRIPTS["mariadb"]} restart"
+  ["sendmail"]="${SERVICE_INIT_SCRIPTS["sendmail"]} restart"
+)
 ################################################################################
 function register_prog() {
   # this function checks that we have all the required commands available.
@@ -1324,6 +1349,16 @@ EOF
 	    logger -t "${0##*/}" "${FUNCNAME}(): ${MESSAGE}"
 	  fi
 	  echo "${MESSAGE}" 1>&4
+	  if (( ${RESTART_SERVICES} ))
+	  then
+	    # if there is an init script and it is executable, add the service to the list to be restarted
+	    set +u
+	    if [ -n "${SERVICE_INIT_SCRIPTS[${PKG_NAME}]}" -a -x "${SERVICE_INIT_SCRIPTS[${PKG_NAME}]}" ]
+	    then
+	      SERVICES_TO_RESTART+=("${PKG_NAME}")
+	    fi
+	    set -u
+	  fi
 	fi
       ;;
       1)
@@ -1905,6 +1940,18 @@ then
     echo "        there seems to be a README available at ${KERNEL_UPGRADE_README}, i suggest you read it."
   fi
   echo -n $'\n'
+fi
+if [ ${#SERVICES_TO_RESTART[*]} -ne 0 ]
+then
+  echo -e "\nrestarting services:"
+  for SERVICE in ${SERVICES_TO_RESTART[*]}
+  do
+    if [ -x "${SERVICE_INIT_SCRIPTS[${SERVICE}]}" ]
+    then
+      echo "${SERVICE}:"
+      ${SERVICE_RESTART_COMMANDS[${SERVICE}]}
+    fi
+  done
 fi
 ################################################################################
 # and then for some totally unnecessary information!-)                         #
