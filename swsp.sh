@@ -799,12 +799,6 @@ function upgrade_package_from_mirror() {
   for ((I=0; I<$[${#MIRRORS[*]}]; I++))
   do
     CUT_DIRS=$( sed 's:/\+: :g' 0<<<"${MIRRORS[I]}" | wc --words )
-    #echo "DEBUG: ${FUNCNAME}():"
-    ##echo "  ${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE}"
-    #echo "  MIRROR=${MIRRORS[I]}"
-    #echo "  CUT_DIRS=${CUT_DIRS}"
-    #echo "  PACKAGE=${PACKAGE}"
-    #echo "  PACKAGE_BASENAME=${PACKAGE_BASENAME}"
     get_file "${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE#./}" ${CUT_DIRS} || continue
     # 21.3.2008: here we go with the static return codes=)                     #
     # 21.8.2009: strip possible directories                                    #
