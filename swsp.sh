@@ -272,8 +272,10 @@ RESTART_SERVICES=0
 SERVICES_TO_RESTART=()
 # this is essentially just a mapping from pacakge -> init script -> (graceful) restart command
 #declare -a OPENSSL_SERVICES=() # TODO
+# TODO: restart services only once (e.g. apache & php updated -> restart apache only once)
 declare -rA SERVICE_INIT_SCRIPTS=(
   ["httpd"]="/etc/rc.d/rc.httpd"
+  ["php"]="/etc/rc.d/rc.httpd"
   ["openssh"]="/etc/rc.d/rc.sshd"
   ["ntp"]="/etc/rc.d/rc.ntpd"
   ["bind"]="/etc/rc.d/rc.bind"
@@ -285,6 +287,7 @@ declare -rA SERVICE_INIT_SCRIPTS=(
 # use "graceful" restart whenever possible
 declare -rA SERVICE_RESTART_COMMANDS=(
   ["httpd"]="${SERVICE_INIT_SCRIPTS["httpd"]} graceful"
+  ["php"]="${SERVICE_INIT_SCRIPTS["httpd"]} graceful"
   ["openssh"]="${SERVICE_INIT_SCRIPTS["openssh"]} restart"
   ["ntp"]="${SERVICE_INIT_SCRIPTS["ntp"]} restart"
   ["bind"]="${SERVICE_INIT_SCRIPTS["bind"]} restart"
