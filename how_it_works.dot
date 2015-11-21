@@ -113,7 +113,7 @@ digraph {
 
   start[label="security_update()"];
   end[label="End"];
-  fetch_FILE_LIST[label="Fetch FILE_LIST and signatures"];
+  fetch_FILE_LIST[label="Fetch FILE_LIST, CHECKSUMS.md5 & CHECKSUMS.md5.asc"];
   verify_checksums[label="Verify CHECKSUMS.md5 with PGP"];
   //verify_file_list[label="Verify FILE_LIST's MD5"];
   md5_verified[label="MD5 successfully verified?"];
