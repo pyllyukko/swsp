@@ -41,3 +41,10 @@ Notes
 - Run this manually. Always. Running something like this from cron, will
   eventually get you compromised. There will always be something that will
   fail, eventually. Do not trust automation when it comes to security.
+
+How it works?
+-------------
+
+Here's roughly how it works:
+
+![How it works](./how_it_works.svg)

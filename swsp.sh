@@ -20,53 +20,6 @@
 #                                                                              #
 # ############################################################################ #
 #                                                                              #
-# this is roughly how this script works:
-#                                                                              #
-#   - perform a bunch of sanity checks
-#   - detect the Slackware version and architecture in use
-#   - fetch the patches/FILE_LIST		file from $MAIN_MIRROR FTP
-#   - fetch the patches/CHECKSUMS.md5		file from $MAIN_MIRROR FTP
-#   - fetch the patches/CHECKSUMS.md5.asc	file from $MAIN_MIRROR FTP
-#   - verify the PGP signature of	CHECKSUMS.md5
-#   - verify the FILE_LIST MD5 from	CHECKSUMS.md5
-#   - at this point we should be confident that the patch list is authentic
-#   - read all available packages from FILE_LIST into $PACKAGES[] array
-#
-#   - go through the $PACKAGES[] array:
-#     - check if the package in question is installed on the local system
-#     - if $SELECT_UPDATES_INDIVIDUALLY is 1, let user choose whether to add
-#       the package to the $UPDATES[] array
-#     - go through the $UPDATE_BLACKLIST[] array to see if we should skip this
-#       patch
-#     - verify the slackware version tag in the package's revision field is
-#       correct, if available at all that is
-#     - if SKIP_VERSION_TEST is 0, perform version comparison against the
-#       currently installed versions with version_checker() and
-#       do_version_check() functions
-#       - if versions are the same, compare the revisions
-#     - if SKIP_VERSION_TEST is 1, just compare whether the versions are
-#       exactly same
-#   - add suitable packages to the $UPDATES[] array
-#   - print a brief summary about the packages in the $UPDATES[] array
-#
-#   - start processing the $UPDATES[] array:
-#     - try to fetch the SSA ID for the patch from www.slackware.com
-#     - check if the patch is a kernel upgrade, so we can notify the user that
-#       it needs some manual work
-#     - try all the $MIRRORS[] until the package and it's PGP signature file
-#       are downloaded
-#     - verify the package's MD5 from CHECKSUMS.md5 (note that CHECKSUMS.md5
-#       itself should already be verified at this point, also see
-#       $CHECKSUMS_VERIFIED variable)
-#     - verify the package's PGP signature
-#     - run upgradepkg with --dry-run first and the the real deal
-#     - if everything went well, add the applied patch to $UPGRADED_PACKAGES[]
-#       array, otherwise to the $FAILED_PACKAGES[] array
-#                                                                              #
-#   ... to be continued
-#                                                                              #
-# ############################################################################ #
-#                                                                              #
 # NOTES:                                                                       #
 #                                                                              #
 # TODO: (- = pending & * = done)                                               #
