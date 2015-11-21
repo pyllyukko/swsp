@@ -941,7 +941,7 @@ function process_packages() {
       echo    "    current:"
       echo -e "      version:\t${LOCAL_PKG_VERSION}"
       echo -e "      revision:\t${LOCAL_PKG_REV}"
-      ask_user && UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
+      ask_user && UPDATES+=("${PACKAGES[${I}]}")
     # select updates automatically
     else
       ############################################################################
