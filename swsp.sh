@@ -231,6 +231,7 @@ declare     ACTION=
 declare     CHECKSUMS_VERIFIED=false
 declare -r  YEAR=$(date +%Y)
 declare     KERNEL_UPGRADE_README=""
+declare     CHECKSUMS_WARN_AGE=30
 
 # BOOLEANS
 declare USE_SYSLOG=1
@@ -612,6 +613,7 @@ function gpg_verify() {
   local    FILE_TO_VERIFY
   local -i RET
   local    CHECKSUMS_NEW_TS
+  local    CHECKSUMS_AGE
 
   # quiet mode
   if [ ${#} -eq 3 ] && [ "${3}" = "-q" ]
@@ -656,6 +658,7 @@ function gpg_verify() {
     else
       CHECKSUMS_NEW_TS=$( date --date="${CHECKSUMS_NEW_TS}" +%s )
     fi
+    CHECKSUMS_AGE=$(( ( $( date +%s ) - CHECKSUMS_NEW_TS ) / (60*60*24) ))
     set +u
     if [ -n "${CHECKSUMS_OLD_TS}" -a -n "${CHECKSUMS_NEW_TS}" ]
     then
@@ -666,6 +669,10 @@ function gpg_verify() {
       if [ ${CHECKSUMS_NEW_TS} -lt ${CHECKSUMS_OLD_TS} ]
       then
         echo -e "  ${WRN}warning${RST}: PGP timestamp of current/latest CHECKSUMS.md5 is older than the previous known!" 1>&2
+      fi
+      if [ ${CHECKSUMS_AGE} -gt ${CHECKSUMS_WARN_AGE} ]
+      then
+	echo -e "  ${WRN}warning${RST}: PGP timestamp of current/latest CHECKSUMS.md5 is older ${CHECKSUMS_WARN_AGE} day(s)!" 1>&2
       fi
     else
 	echo "  WARNING: can not compare PGP signature timestamps..."
