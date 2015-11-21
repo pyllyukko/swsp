@@ -700,31 +700,6 @@ function verify_package() {
     get_file "${MAIN_MIRROR}/${FTP_PATH_SUFFIX}/${SIGFILE}" 3 || \
       return ${RET_ERROR}
 
-  # do we have the files, do they verify?                                      #
-  # 11.10.2009: this is getting too complicated=)                              #
-  # 25.6.2011: TODO: clean up!
-  #if \
-  #  # we MUST have the files AND either of the two criterias true              #
-  #  [ -f "${WORK_DIR}/CHECKSUMS.md5" -a -f "${WORK_DIR}/CHECKSUMS.md5.asc" ] && \
-  #  (
-  #    ${CHECKSUMS_VERIFIED} || \
-  #    # in case the local files are borked                                     #
-  #    gpg_verify "${WORK_DIR}/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
-  #  )
-  #then
-  #  # gpg_verify returned 0, or already verified                               #
-  #  echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (first row)" 1>&2
-  #  CHECKSUMS_VERIFIED=true
-  #else
-  #  rm -f "${WORK_DIR}/CHECKSUMS.md5" "${WORK_DIR}/CHECKSUMS.md5.asc"
-  #  for FILE in "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
-  #  do
-  #    # no CHECKSUMS = no MD5s = no updates = FATAL ERROR!                     #
-  #    get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/${FILE}" || return ${RET_FERROR}
-  #  done
-  #  CHECKSUMS_VERIFIED=false
-  #fi
-
   # are the files new enough?                                                  #
   if ! grep --quiet "${SIGFILE}$" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>/dev/null
   then
@@ -807,14 +782,12 @@ function upgrade_package_from_mirror() {
 	  upgradepkg "${WORK_DIR}/patches/${PACKAGE}" | awk '/^[A-Z][a-z]/{printf "    %s\n", $0;}/^[+|]/{printf "    %s\n", $0;}'
 	  if [ ${PIPESTATUS[0]} -eq 0 ]
 	  then
-            #echo -e "${HL}ok${RST}!" 1>&3
             ####################################################################
 	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
             ####################################################################
 	    UPGRADED_PACKAGES+=("${PACKAGE_BASENAME}")
 	    return ${RET_OK}
 	  else
-	    #echo -e "${ERR}FAILED${RST}, check the log in \`${HL}${WORK_DIR}/${PACKAGE_BASENAME}.log${RST}'!" 1>&3
 	    echo -e "    ${ERR}FAILED${RST}!" 1>&3
             return ${RET_FAILED}
 	  fi # if [ ${PIPESTATUS[0]} -eq 0 ]
