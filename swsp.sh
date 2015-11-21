@@ -510,19 +510,6 @@ function md5_verify() {
   shift 2
 
   # few checks
-  #if [ ! -f "${WORK_DIR}/CHECKSUMS.md5" ]
-  #then
-  #  get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5" || {
-  #    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 missing and failed to download!" 1>&2
-  #    return ${RET_FERROR}
-  #  }
-  #elif [ ! -f "${WORK_DIR}/CHECKSUMS.md5.asc" ]
-  #then
-  #  get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/CHECKSUMS.md5.asc" || {
-  #    echo "  ${FUNCNAME}(): error: CHECKSUMS.md5.asc missing and failed to download!" 1>&2
-  #    return ${RET_FERROR}
-  #  }
-  #fi
   if [ ! -f "${CHECKSUMS_FILE}" ]
   then
     echo "  ${FUNCNAME}(): error: CHECKSUMS.md5 is nowhere to be seen!" 1>&2
@@ -547,17 +534,6 @@ function md5_verify() {
   # if we can't verify CHECKSUMS file, we can't use it to compare MD5s         #
   # so we'll return with fatal error and abort the whole upgrade procedure     #
   ##############################################################################
-  # if either of these is true...                                              #
-  #if \
-  #  ${CHECKSUMS_VERIFIED} || \
-  #  gpg_verify "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${PRIMARY_KEY_FINGERPRINT}"
-  #then
-  #  #echo "  ${FUNCNAME}(): DEBUG: CHECKSUMS verified (second row)" 1>&2
-  #  CHECKSUMS_VERIFIED=true
-  #else
-  #  echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
-  #  return ${RET_FERROR}
-  #fi
   gpg_verify "${CHECKSUMS_FILE}.asc" "${PRIMARY_KEY_FINGERPRINT}" || {
     echo "${FUNCNAME}(): error: can't verify the CHECKSUMS file!" 1>&2
     return ${RET_FERROR}
@@ -571,7 +547,6 @@ function md5_verify() {
   fi
   # example line from CHECKSUMS.md5:
   # d10a06f937e5e6f32670d6fc904120b4  ./patches/packages/linux-2.6.29.6-3/kernel-modules-2.6.29.6-i486-3.txz.asc
-  #pushd "${WORK_DIR}/patches" 1>/dev/null
   pushd "${PATH_TO_FILE}" 1>/dev/null
   for SIGFILE in ${*}
   do
@@ -960,7 +935,6 @@ function process_packages() {
     PACKAGE_BASENAME="${PACKAGES[${I}]##*/}"
     split_package_name "${PACKAGE_BASENAME}" "PKG" || {
       echo -e "${FUNCNAME}(): ${WRN}warning${RST}: this probably means that there was an error while reading/parsing the packages list"
-      #echo "${FUNCNAME}(): DEBUG: ${PACKAGES[${I}]##*/}"
       continue
     }
     # check if the package is of correct architecture
@@ -1003,7 +977,6 @@ function process_packages() {
     then
       # remember: print local and remote versions...
       # prompt y/n
-      #echo "${FUNCNAME}(): DEBUG: PACKAGES[\$I]=${PACKAGES[${I}]}"
       [ "x${PKG_VERSION}" = "x${LOCAL_PKG_VERSION}" -a "x${PKG_REV}" = "x${LOCAL_PKG_REV}" ] && continue
       echo "package details:"
       echo -e "  update [$((I+1))/${#PACKAGES[*]}] ${HL}${PKG_NAME}${RST}:"
@@ -1221,7 +1194,6 @@ function security_update()
       # download the FILE_LIST and CHECKSUMS, so we can also verify the FILE_LIST
       for FILE in "FILE_LIST" "CHECKSUMS.md5" "CHECKSUMS.md5.asc"
       do
-	#echo "DEBUG: ${FUNCNAME}()"
         get_file "${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${FILE}" 3
       done
       CHECKSUMS_VERIFIED=false
@@ -1240,7 +1212,6 @@ function security_update()
           continue
 	elif [[ "${REPLY[7]}" =~ "^(\./packages/.+\.t[gx]z)$" ]]
 	then
-          #PACKAGES[${#PACKAGES[*]}]="${BASH_REMATCH[1]}"
 	  PACKAGES+=("${BASH_REMATCH[1]}")
         # detect kernel upgrade instructions from the file list
         # for instance: ftp://ftp.slackware.com/pub/slackware/slackware-12.2/patches/packages/linux-2.6.27.31/README
@@ -1900,7 +1871,6 @@ then
   then
     CHECKSUMS_OLD_TS=$( date --date="${CHECKSUMS_OLD_TS}" +%s )
   fi
-  #echo "DEBUG: old CHECKSUMS timestamp=${CHECKSUMS_OLD_TS}"
 fi
 ################################################################################
 # ...THEN DECIDE WHAT TO DO!                                                   #
