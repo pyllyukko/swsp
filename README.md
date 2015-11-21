@@ -47,4 +47,4 @@ How it works?
 
 Here's roughly how it works:
 
-![How it works](./how_it_works.svg)
+![How it works](./how_it_works.png)
