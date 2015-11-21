@@ -413,9 +413,6 @@ function get_file() {
   then
     let CUT_DIRS+=${2}
   fi
-  #echo "DEBUG: ${FUNCNAME}():"
-  #echo "  CUT_DIRS=${CUT_DIRS}"
-  #echo "  URL=${1}"
 
   ##############################################################################
   # NOTE: ADD FILE://                                                          #
@@ -511,12 +508,6 @@ function md5_verify() {
   local    MD5_RET
 
   shift 2
-
-  #echo "DEBUG: ${FUNCNAME}():"
-  #echo "  SIGFILE=${SIGFILE}"
-  #echo "  PATH_TO_FILE=${PATH_TO_FILE}"
-  #echo "  CHECKSUMS_FILE=${CHECKSUMS_FILE}"
-  #echo "  *=${*}"
 
   # few checks
   #if [ ! -f "${WORK_DIR}/CHECKSUMS.md5" ]
@@ -729,8 +720,6 @@ function verify_package() {
   local    SIGFILE="${1}.asc"
   local    SIGFILE_BASENAME="${SIGFILE##*/}"
 
-  #echo "${FUNCNAME}(): DEBUG: \$1=${1} SIGFILE=${SIGFILE} SIGFILE_BASENAME=${SIGFILE_BASENAME}"
-
   # can't verify this package at all? return RET_ERROR and go on to the next p #
   [ -f "${WORK_DIR}/patches/${SIGFILE_BASENAME}" ] || \
     get_file "${MAIN_MIRROR}/${FTP_PATH_SUFFIX}/${SIGFILE}" 3 || \
@@ -783,13 +772,7 @@ function verify_package() {
     }
   fi
 
-  # we search with the full path (e.g.: "linux-2.6.27.31/kernel-modules-smp-2.6.27.31_smp-i686-2.tgz.asc")
-  #echo "DEBUG: ${FUNCNAME}():"
-  #echo "  SIGFILE=${SIGFILE}"
-  #echo "  SIGFILE_BASENAME=${SIGFILE_BASENAME}"
   QUIET_GPGV=1
-  #md5_verify "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5" "${1}"			|| return ${RET_FAILED}
-  #md5_verify "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5" "${SIGFILE}" 	|| return ${RET_FAILED}
   md5_verify "${WORK_DIR}/patches" "${WORK_DIR}/patches/CHECKSUMS.md5" "${1}" "${SIGFILE}" || return ${RET_FAILED}
   QUIET_GPGV=0
   gpg_verify "${WORK_DIR}/patches/${SIGFILE}" "${PRIMARY_KEY_FINGERPRINT}"		|| return ${RET_FAILED}
@@ -833,7 +816,6 @@ function upgrade_package_from_mirror() {
     get_file "${MIRRORS[I]}/${FTP_PATH_SUFFIX}/${PACKAGE#./}" ${CUT_DIRS} || continue
     # 21.3.2008: here we go with the static return codes=)                     #
     # 21.8.2009: strip possible directories                                    #
-    #echo "${FUNCNAME}(): DEBUG: PACKAGE=\"${PACKAGE}\" PACKAGE_BASENAME=\"${PACKAGE_BASENAME}\""
     verify_package "${PACKAGE}"
     case ${?} in
       ${RET_OK})
