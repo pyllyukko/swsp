@@ -645,9 +645,6 @@ function gpg_verify() {
     return ${RET_ERROR}
   fi
 
-  #echo "DEBUG: ${FUNCNAME}():"
-  #echo "  FILE_TO_VERIFY=${FILE_TO_VERIFY}"
-
   # TODO: make sure this is the right CHECKSUMS.md5, since there can be many
   #       that is "patches/CHECKSUMS.md5"
   if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
@@ -659,7 +656,6 @@ function gpg_verify() {
     else
       CHECKSUMS_NEW_TS=$( date --date="${CHECKSUMS_NEW_TS}" +%s )
     fi
-    #echo "DEBUG: new CHECKSUMS timestamp=${CHECKSUMS_NEW_TS}"
     set +u
     if [ -n "${CHECKSUMS_OLD_TS}" -a -n "${CHECKSUMS_NEW_TS}" ]
     then
