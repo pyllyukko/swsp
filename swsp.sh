@@ -918,7 +918,8 @@ function process_packages() {
       echo -e "      version:\t${LOCAL_PKG_VERSION}"
       echo -e "      revision:\t${LOCAL_PKG_REV}"
       set +u
-      until [ "x${REPLY}" = "xy" -o "x${REPLY}" = "xn" ]
+      shopt -s nocasematch
+      until [[ "${REPLY}" =~ ^[yn]$ ]]
       do
         read -p "upgrade package \`${PKG_NAME}'? y/n: " -n 1 REPLY
         case "${REPLY}" in
@@ -931,6 +932,7 @@ function process_packages() {
         esac
       done
       set -u
+      shopt -u nocasematch
       unset -v REPLY
     # select updates automatically
     else
