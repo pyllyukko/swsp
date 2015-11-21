@@ -150,7 +150,11 @@ declare -ra MIRRORS=(
 # TODO: use same dirs as slackpkg (/var/cache/packages)
 declare -r  WORK_DIR_ROOT="/var/cache/swsp"
 # which packages not to upgrade
-declare -ra UPDATE_BLACKLIST=()
+declare -a UPDATE_BLACKLIST=()
+if [ -f /etc/slackpkg/blacklist ]
+then
+  UPDATE_BLACKLIST+=( $( grep -e "^\([a-z]\)" /etc/slackpkg/blacklist ) )
+fi
 declare -r  UMASK="077"
 declare -r  GPG_KEYRING="trustedkeys.gpg"
 # 2.1.2011: use slackware.osuosl.org, the "another primary FTP site"
@@ -933,8 +937,6 @@ function process_packages() {
       ############################################################################
       # check if the package is "blacklisted", something that you don't want to  #
       # upgrade with this script.                                                #
-      #                                                                          #
-      # TODO: include slackpkg's blacklist (/etc/slackpkg/blacklist)             #
       ############################################################################
       if [ ${#UPDATE_BLACKLIST[*]} -ne 0 ]
       then
