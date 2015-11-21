@@ -336,6 +336,30 @@ do_version_check() {
   fi
 } # do_version_check()
 ################################################################################
+function ask_user() {
+  local REPLY
+  local RET=1
+
+  set +u
+  shopt -s nocasematch
+  until [[ "${REPLY}" =~ ^[yn]$ ]]
+  do
+    read -p "upgrade package \`${PKG_NAME}'? y/n: " -n 1 REPLY
+    case "${REPLY}" in
+      "y")
+        echo "es"
+	RET=0
+      ;;
+      "n") echo "o"		;;
+      *)   echo -n $'\n'	;;
+    esac
+  done
+  set -u
+  shopt -u nocasematch
+
+  return ${RET}
+} # ask_user()
+################################################################################
 function get_file() {
   ##############################################################################
   # 20.3.2008: simplified this function                                        #
@@ -917,23 +941,7 @@ function process_packages() {
       echo    "    current:"
       echo -e "      version:\t${LOCAL_PKG_VERSION}"
       echo -e "      revision:\t${LOCAL_PKG_REV}"
-      set +u
-      shopt -s nocasematch
-      until [[ "${REPLY}" =~ ^[yn]$ ]]
-      do
-        read -p "upgrade package \`${PKG_NAME}'? y/n: " -n 1 REPLY
-        case "${REPLY}" in
-          "y")
-            echo "es"
-            UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
-          ;;
-          "n") echo "o" ;;
-          *)   echo -n $'\n' ;;
-        esac
-      done
-      set -u
-      shopt -u nocasematch
-      unset -v REPLY
+      ask_user && UPDATES[${#UPDATES[*]}]="${PACKAGES[${I}]}"
     # select updates automatically
     else
       ############################################################################
