@@ -3,7 +3,7 @@
 #                                                                              #
 # slackware security patcher                                                   #
 # pyllyukko <at> maimed <dot> org                                              #
-# http://maimed.org/~pyllyukko/                                                #
+# https://github.com/pyllyukko/swsp                                            #
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
 #   - gnupg                                                                    #
