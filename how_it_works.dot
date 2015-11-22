@@ -63,6 +63,8 @@ digraph {
   is_package_installed[shape="diamond", style=""];
   is_package_blacklisted[shape="diamond", style=""];
   is_package_newer[shape="diamond", style=""];
+  add_to_update_list[shape="box", style=rounded];
+  updates_left_on_the_list[shape="diamond", style=""];
   upgrade_package_from_mirror[shape="box", style=rounded];
   next_mirror[shape="diamond", style=""];
   package_upgrade_failed[shape="box", style=rounded];
@@ -102,7 +104,9 @@ digraph {
   is_package_blacklisted -> is_package_newer[label="No"];
   is_package_blacklisted -> next_package[label="Yes"];
   is_package_newer -> next_package[label="No"];
-  is_package_newer -> upgrade_package_from_mirror[label="Yes"];
+  is_package_newer -> add_to_update_list[label="Yes"];
+  add_to_update_list -> updates_left_on_the_list;
+  updates_left_on_the_list -> upgrade_package_from_mirror[label="Yes"];
   next_package -> end[label="No"];
 
   upgrade_package_from_mirror -> next_mirror;
@@ -116,9 +120,10 @@ digraph {
   package_ok -> dry_run;
   dry_run -> upgradepkg[label="Yes"];
   upgradepkg -> package_upgraded[label="Yes"];
+
   upgradepkg -> package_upgrade_failed[label="No"];
-  package_upgraded -> next_package[label="RET_OK"];
-  package_upgrade_failed -> next_package[label="RET_FAILED"];
+  package_upgraded -> updates_left_on_the_list[label="RET_OK"];
+  package_upgrade_failed -> updates_left_on_the_list[label="RET_FAILED"];
 
   start[label="security_update()"];
   end[label="End"];
@@ -135,6 +140,8 @@ digraph {
   is_package_installed[label="Is the package installed locally?"];
   is_package_blacklisted[label="Is the package blacklisted for upgrade?"];
   is_package_newer[label="Is the available patch newer than local?"];
+  add_to_update_list[label="Add to updates list"];
+  updates_left_on_the_list[label="Updates left on the list?"];
   upgrade_package_from_mirror[label="upgrade_package_from_mirror()"];
   package_upgrade_failed[label="Package could not be upgraded"];
   next_mirror[label="Mirrors left?"];
