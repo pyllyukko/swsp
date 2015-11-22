@@ -97,13 +97,14 @@ digraph {
   process_packages -> next_package[label="Yes"];
 
   next_package -> is_package_installed[label="Yes"];
-  next_package -> end[label="No"];
   is_package_installed -> next_package[label="No"];
   is_package_installed -> is_package_blacklisted[label="Yes"];
   is_package_blacklisted -> is_package_newer[label="No"];
   is_package_blacklisted -> next_package[label="Yes"];
   is_package_newer -> next_package[label="No"];
   is_package_newer -> upgrade_package_from_mirror[label="Yes"];
+  next_package -> end[label="No"];
+
   upgrade_package_from_mirror -> next_mirror;
   next_mirror -> fetch_package[label="Yes"];
   next_mirror -> package_upgrade_failed[label="No"];
