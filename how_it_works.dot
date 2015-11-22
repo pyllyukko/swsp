@@ -73,21 +73,29 @@ digraph {
   package_upgraded[shape="box", style=rounded];
 
   start -> fetch_FILE_LIST;
-  fetch_FILE_LIST -> verify_checksums;
-  verify_checksums -> pgp_verified;
+  subgraph cluster0 {
+    label="Download and verify FILE_LIST"
+
+    fetch_FILE_LIST -> verify_checksums;
+    verify_checksums -> pgp_verified;
+    pgp_verified -> md5_verified[label="Yes"];
+  }
   pgp_verified -> fail[label="No"];
-  pgp_verified -> md5_verified[label="Yes"];
   /*
   pgp_verified -> verify_file_list[label="Yes"];
   verify_file_list -> md5_verified;
   */
   md5_verified -> fail[label="No (RET_FAILED)"];
   fail -> end;
-  md5_verified -> parse_updates[label="Yes"];
-  parse_updates -> any_packages_found;
-  any_packages_found -> process_packages[label="Yes"];
+
+  subgraph cluster1 {
+    md5_verified -> parse_updates[label="Yes"];
+    parse_updates -> any_packages_found;
+    any_packages_found -> process_packages[label="Yes"];
+  }
   any_packages_found -> end[label="No"];
   process_packages -> next_package[label="Yes"];
+
   next_package -> is_package_installed[label="Yes"];
   next_package -> end[label="No"];
   is_package_installed -> next_package[label="No"];
