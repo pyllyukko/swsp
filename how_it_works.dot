@@ -110,6 +110,7 @@ digraph {
   }
   add_to_update_list -> next_package;
   updates_left_on_the_list -> upgrade_package_from_mirror[label="Yes"];
+  updates_left_on_the_list -> end[label="No"];
   next_package -> updates_left_on_the_list[label="No"];
 
   upgrade_package_from_mirror -> next_mirror;
