@@ -109,26 +109,33 @@ digraph {
     is_package_newer -> add_to_update_list[label="Yes"];
   }
   add_to_update_list -> next_package;
-  updates_left_on_the_list -> upgrade_package_from_mirror[label="Yes"];
-  updates_left_on_the_list -> end[label="No"];
   next_package -> updates_left_on_the_list[label="No"];
 
+  updates_left_on_the_list -> upgrade_package_from_mirror[label="Yes"];
   upgrade_package_from_mirror -> next_mirror;
   next_mirror -> fetch_package[label="Yes"];
-  next_mirror -> package_upgrade_failed[label="No"];
   fetch_package -> download_success;
+
+  next_mirror -> package_upgrade_failed[label="No"];
   download_success -> next_mirror[label="No"];
   download_success -> package_md5_verified[label="Yes"];
+
+  // verify
   package_md5_verified -> package_pgp_verified[label="Yes"];
   package_pgp_verified -> package_ok[label="Yes"];
+
+  // upgradepkg
   package_ok -> dry_run;
   dry_run -> upgradepkg[label="Yes"];
-  upgradepkg -> package_upgraded[label="Yes"];
 
+  upgradepkg -> package_upgraded[label="Yes"];
   upgradepkg -> package_upgrade_failed[label="No"];
   package_upgraded -> updates_left_on_the_list[label="RET_OK"];
   package_upgrade_failed -> updates_left_on_the_list[label="RET_FAILED"];
 
+  updates_left_on_the_list -> end[label="No"];
+
+  // labels
   start[label="security_update()"];
   end[label="End"];
   fetch_FILE_LIST[label="Fetch FILE_LIST, CHECKSUMS.md5 & CHECKSUMS.md5.asc"];
