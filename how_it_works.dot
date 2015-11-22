@@ -98,16 +98,19 @@ digraph {
   any_packages_found -> end[label="No"];
   process_packages -> next_package[label="Yes"];
 
-  next_package -> is_package_installed[label="Yes"];
-  is_package_installed -> next_package[label="No"];
-  is_package_installed -> is_package_blacklisted[label="Yes"];
-  is_package_blacklisted -> is_package_newer[label="No"];
-  is_package_blacklisted -> next_package[label="Yes"];
-  is_package_newer -> next_package[label="No"];
-  is_package_newer -> add_to_update_list[label="Yes"];
-  add_to_update_list -> updates_left_on_the_list;
+  subgraph cluster2 {
+    label="Process available packages";
+    next_package -> is_package_installed[label="Yes"];
+    is_package_installed -> next_package[label="No"];
+    is_package_installed -> is_package_blacklisted[label="Yes"];
+    is_package_blacklisted -> is_package_newer[label="No"];
+    is_package_blacklisted -> next_package[label="Yes"];
+    is_package_newer -> next_package[label="No"];
+    is_package_newer -> add_to_update_list[label="Yes"];
+  }
+  add_to_update_list -> next_package;
   updates_left_on_the_list -> upgrade_package_from_mirror[label="Yes"];
-  next_package -> end[label="No"];
+  next_package -> updates_left_on_the_list[label="No"];
 
   upgrade_package_from_mirror -> next_mirror;
   next_mirror -> fetch_package[label="Yes"];
