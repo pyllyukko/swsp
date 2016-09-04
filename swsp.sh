@@ -176,8 +176,8 @@ declare -a  PACKAGE
 # UPDATES[] is used by process_packages(), security_update() &
 # print_upgrade_summary() functions
 declare -a  UPDATES=()
-declare -a  UPGRADED_PACKAGES
-declare -a  FAILED_PACKAGES
+declare -a  UPGRADED_PACKAGES=()
+declare -a  FAILED_PACKAGES=()
 declare     ACTION=
 declare     CHECKSUMS_VERIFIED=false
 declare -r  YEAR=$(date +%Y)
