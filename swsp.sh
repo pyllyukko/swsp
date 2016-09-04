@@ -1629,7 +1629,7 @@ EOF
 } # sanity_checks()
 ################################################################################
 function fetch_and_import_PGP_key() {
-  wget http://www.slackware.com/gpg-key --output-document=- | gpg --keyring trustedkeys.gpg --no-default-keyring --import -
+  wget http://www.slackware.com/gpg-key --output-document=- | gpg --keyring ${GPG_KEYRING} --no-default-keyring --import -
   return $[ ${PIPESTATUS[0]} | ${PIPESTATUS[1]} ]
 } # fetch_and_import_PGP_key()
 ################################################################################
