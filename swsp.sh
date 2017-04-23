@@ -481,6 +481,7 @@ function md5_verify() {
   local    CHECKSUMS_FILE="${2}"
   local -i RET=${RET_OK}
   local    MD5_RET
+  local    esc=$(printf '\033')
 
   shift 2
 
@@ -525,7 +526,7 @@ function md5_verify() {
   pushd "${PATH_TO_FILE}" 1>/dev/null
   for SIGFILE in ${*}
   do
-    grep "^[0-9a-f]\{32\}  ${SIGFILE}$" "${CHECKSUMS_FILE}" | md5sum -c | sed 's/^/    /'
+    grep "^[0-9a-f]\{32\}  ${SIGFILE}$" "${CHECKSUMS_FILE}" | md5sum -c | sed -e "s/OK$/${esc}[1;32m&${esc}[0m/" -e 's/^/    /'
     MD5_RET=${PIPESTATUS[1]}
     if [ ${MD5_RET} -eq 0 -a ${RET} -eq ${RET_OK} ]
     then
@@ -555,6 +556,7 @@ function gpg_verify() {
   local -i RET
   local    CHECKSUMS_NEW_TS
   local    CHECKSUMS_AGE
+  local    esc=$(printf '\033')
 
   # quiet mode
   if [ ${#} -eq 3 ] && [ "${3}" = "-q" ]
@@ -638,7 +640,7 @@ function gpg_verify() {
     echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
 
     # show gpgv quiet output always, since it's quite useful. namely the timestamp.
-    gpgv --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" 2>&1 | sed 's/^/    /'
+    gpgv --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" 2>&1 | sed -e "s/\(Good signature\)/${esc}[1;32m\1${esc}[0m/" -e 's/^/    /'
     RET=${PIPESTATUS[0]}
   fi
   if [ ${RET} -ne 0 ]
