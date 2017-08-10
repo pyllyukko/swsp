@@ -1555,7 +1555,6 @@ function sanity_checks() {
   #                                                                            #
   # returns eiher RET_OK or RET_FAILED                                         #
   ##############################################################################
-  local FINGERPRINT
   ##############################################################################
   # ARE WE ROOT?                                                               #
   ##############################################################################
@@ -1614,11 +1613,10 @@ EOF
     return ${RET_FAILED}
   }
   # compare the fingerprint to the one swsp knows
-  FINGERPRINT=`gpg \
+  if ! gpg \
     --keyring "${GPG_KEYRING}" \
     --no-default-keyring \
-    --fingerprint "Slackware Linux Project <security@slackware.com>" | awk '/Key fingerprint/{sub(/^.+= /, "");print}'`
-  if [ "x${PRIMARY_KEY_FINGERPRINT}" != "x${FINGERPRINT}" ]
+    --fingerprint "Slackware Linux Project <security@slackware.com>" | grep -q "${PRIMARY_KEY_FINGERPRINT}"
   then
     echo "${FUNCNAME}(): error: Slackware's primary key fingerprint differs from the one that ${SWSP%\.sh} knows!?!" 1>&2
     return ${RET_FAILED}
