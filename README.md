@@ -4,6 +4,8 @@ Slackware security patcher (swsp)
 This is a tool to keep your Slackware Linux installation up-to-date with
 security patches.
 
+[![asciicast](https://asciinema.org/a/1ZD7OFsQnZcy8HTW7G58h36dR.png)](https://asciinema.org/a/1ZD7OFsQnZcy8HTW7G58h36dR)
+
 Why?
 ----
 
