@@ -1798,7 +1798,7 @@ fi
 sanity_checks || exit ${RET_FAILED}
 if [ -f "${WORK_DIR}/patches/CHECKSUMS.md5" -a -f "${WORK_DIR}/patches/CHECKSUMS.md5.asc" ]
 then
-  CHECKSUMS_OLD_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
+  CHECKSUMS_OLD_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\)\( using.*\)\?$/\1/p' )
   if [ -n "${CHECKSUMS_OLD_TS}" ]
   then
     CHECKSUMS_OLD_TS=$( date --date="${CHECKSUMS_OLD_TS}" +%s )
