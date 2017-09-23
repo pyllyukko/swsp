@@ -594,7 +594,7 @@ function gpg_verify() {
   #       that is "patches/CHECKSUMS.md5"
   if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
   then
-    CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\) using.*$/\1/p' )
+    CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\)\( using.*\)\?$/\1/p' )
     if [ -z "${CHECKSUMS_NEW_TS}" ]
     then
       echo "  WARNING: could not determine (new) CHECKSUMS PGP signature timestamp" 1>&2
