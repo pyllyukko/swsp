@@ -1638,6 +1638,9 @@ function fetch_and_import_PGP_key() {
   }
   wget -nv http://www.slackware.com/gpg-key --output-document="${pgp_key}"
   # NOTE: we need to be careful not to match the ^uid line!
+  # GnuPG >= 2.1.14
+  # https://lists.gnupg.org/pipermail/gnupg-users/2017-July/058597.html
+  #if ! gpg -n --import --import-options import-show --with-colons "${pgp_key}" | grep '^fpr:::::::::EC5649DA401E22ABFA6736EF6A4463C040102233:$'
   if ! gpg "${pgp_key}" 2>/dev/null | grep '^ \{6\}Key fingerprint = EC56 49DA 401E 22AB FA67  36EF 6A44 63C0 4010 2233$'
   then
     echo '[-] wrong fingerprint' 1>&2
