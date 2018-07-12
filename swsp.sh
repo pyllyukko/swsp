@@ -1602,11 +1602,12 @@ function sanity_checks() {
     --quiet \
     --fingerprint "Slackware Linux Project <security@slackware.com>" &>/dev/null || {
     # alternative location: http://slackware.com/gpg-key
-    echo -e "${FUNCNAME}(): error: you don't have Slackware's public PGP key!" 1>&2
+    echo -e " [${WRN}-${RST}] you don't have Slackware's public PGP key!" 1>&2
     cat 0<<-EOF 1>&3
-	obtain the PGP key by executing the following two commands:
-	  wget ftp://ftp.slackware.com/pub/slackware/${SLACKWARE}-${VERSION}/GPG-KEY
-	  gpg --keyring \"${GPG_KEYRING}\" --no-default-keyring --import ./GPG-KEY
+	obtain the PGP key by performing the following actions:
+	  * wget ftp://ftp.slackware.com/pub/slackware/${SLACKWARE}-${VERSION}/GPG-KEY
+	  * verify the fingerprint (should be EC56 49DA 401E 22AB FA67  36EF 6A44 63C0 4010 2233)
+	  * gpg --keyring "${GPG_KEYRING}" --no-default-keyring --import ./GPG-KEY
 
 	or use the -P switch to do this automatically
 EOF
@@ -1629,8 +1630,24 @@ EOF
 } # sanity_checks()
 ################################################################################
 function fetch_and_import_PGP_key() {
-  wget http://www.slackware.com/gpg-key --output-document=- | gpg --keyring ${GPG_KEYRING} --no-default-keyring --import -
-  return $[ ${PIPESTATUS[0]} | ${PIPESTATUS[1]} ]
+  local pgp_key
+  local pgp_ret
+  pgp_key=$( mktemp ) || {
+    echo "[-] mktemp failed" 1>&2
+    return 1
+  }
+  wget -nv http://www.slackware.com/gpg-key --output-document="${pgp_key}"
+  # NOTE: we need to be careful not to match the ^uid line!
+  if ! gpg "${pgp_key}" 2>/dev/null | grep '^ \{6\}Key fingerprint = EC56 49DA 401E 22AB FA67  36EF 6A44 63C0 4010 2233$'
+  then
+    echo '[-] wrong fingerprint' 1>&2
+    rm -v "${pgp_key}"
+    return 1
+  fi
+  gpg --keyring "${GPG_KEYRING}" --no-default-keyring --import "${pgp_key}"
+  pgp_ret=${?}
+  rm -v "${pgp_key}"
+  return ${pgp_ret}
 } # fetch_and_import_PGP_key()
 ################################################################################
 function print_stack() {
