@@ -222,7 +222,7 @@ declare -ra WGET_ERRORS=(
 )
 RESTART_SERVICES=0
 SERVICES_TO_RESTART=()
-# this is essentially just a mapping from pacakge -> init script -> (graceful) restart command
+# this is essentially just a mapping from package -> init script -> (graceful) restart command
 #declare -a OPENSSL_SERVICES=() # TODO
 # TODO: restart services only once (e.g. apache & php updated -> restart apache only once)
 declare -rA SERVICE_INIT_SCRIPTS=(
