@@ -6,7 +6,7 @@
 # https://github.com/pyllyukko/swsp                                            #
 #                                                                              #
 # (at least) the following packages are needed to run this:                    #
-#   - gnupg                                                                    #
+#   - gnupg2                                                                   #
 #   - wget                                                                     #
 #   - pkgtools (obviously!)                                                    #
 #   - gawk                                                                     #
@@ -150,7 +150,7 @@ then
   UPDATE_BLACKLIST+=( $( grep -e "^\([a-z]\)" /etc/slackpkg/blacklist ) )
 fi
 declare -r  UMASK="077"
-declare -r  GPG_KEYRING="trustedkeys.gpg"
+declare -r  GPG_KEYRING="trustedkeys.kbx"
 # 2.1.2011: use slackware.osuosl.org, the "another primary FTP site"
 declare -r  MAIN_MIRROR="ftp://ftp.slackware.com/pub/slackware"
 #declare -r  MAIN_MIRROR="ftp://elektroni.phys.tut.fi/"
@@ -274,7 +274,7 @@ function register_prog() {
   return ${RET_OK}
 } # register_prog()
 ################################################################################
-for PROGRAM in gpg gpgv md5sum upgradepkg awk gawk sed grep echo rm mkdir egrep eval cut wget cat column date wc
+for PROGRAM in gpg2 gpgv2 md5sum upgradepkg awk gawk sed grep echo rm mkdir egrep eval cut wget cat column date wc
 do
   register_prog "${PROGRAM}" || exit ${RET_FAILED}
 done
@@ -594,7 +594,7 @@ function gpg_verify() {
   #       that is "patches/CHECKSUMS.md5"
   if [ "${FILE_TO_VERIFY##*/}" = "CHECKSUMS.md5" ]
   then
-    CHECKSUMS_NEW_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\)\( using.*\)\?$/\1/p' )
+    CHECKSUMS_NEW_TS=$( gpgv2 "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\)\( using.*\)\?$/\1/p' )
     if [ -z "${CHECKSUMS_NEW_TS}" ]
     then
       echo "  WARNING: could not determine (new) CHECKSUMS PGP signature timestamp" 1>&2
@@ -633,14 +633,14 @@ function gpg_verify() {
   ##############################################################################
   if (( ${QUIET_GPGV} ))
   then
-    gpgv --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" &>/dev/null
+    gpgv2 --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" &>/dev/null
     RET=${?}
   else
     echo -e "  verifying \`${HL}${FILE_TO_VERIFY##*/}${RST}' with ${HL}PGP${RST}:" 1>&3
     echo "verifying ${FILE_TO_VERIFY} with gpgv" 1>&4
 
     # show gpgv quiet output always, since it's quite useful. namely the timestamp.
-    gpgv --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" 2>&1 | sed -e "s/\(Good signature\)/${esc}[1;32m\1${esc}[0m/" -e 's/^/    /'
+    gpgv2 --quiet "${SIGFILE}" "${FILE_TO_VERIFY}" 2>&1 | sed -e "s/\(Good signature\)/${esc}[1;32m\1${esc}[0m/" -e 's/^/    /'
     RET=${PIPESTATUS[0]}
   fi
   if [ ${RET} -ne 0 ]
@@ -1596,7 +1596,7 @@ function sanity_checks() {
   # the script executes the same command twice because i wanted to remove all  #
   # ugly hacks relating to the subject                                         #
   ##############################################################################
-  gpg \
+  gpg2 \
     --keyring "${GPG_KEYRING}" \
     --no-default-keyring \
     --quiet \
@@ -1607,14 +1607,14 @@ function sanity_checks() {
 	obtain the PGP key by performing the following actions:
 	  * wget ftp://ftp.slackware.com/pub/slackware/${SLACKWARE}-${VERSION}/GPG-KEY
 	  * verify the fingerprint (should be EC56 49DA 401E 22AB FA67  36EF 6A44 63C0 4010 2233)
-	  * gpg --keyring "${GPG_KEYRING}" --no-default-keyring --import ./GPG-KEY
+	  * gpg2 --keyring "${GPG_KEYRING}" --no-default-keyring --import ./GPG-KEY
 
 	or use the -P switch to do this automatically
 EOF
     return ${RET_FAILED}
   }
   # compare the fingerprint to the one swsp knows
-  if ! gpg \
+  if ! gpg2 \
     --keyring "${GPG_KEYRING}" \
     --no-default-keyring \
     --fingerprint "Slackware Linux Project <security@slackware.com>" | grep -q "${PRIMARY_KEY_FINGERPRINT}"
@@ -1641,13 +1641,13 @@ function fetch_and_import_PGP_key() {
   # GnuPG >= 2.1.14
   # https://lists.gnupg.org/pipermail/gnupg-users/2017-July/058597.html
   #if ! gpg -n --import --import-options import-show --with-colons "${pgp_key}" | grep '^fpr:::::::::EC5649DA401E22ABFA6736EF6A4463C040102233:$'
-  if ! gpg "${pgp_key}" 2>/dev/null | grep '^ \{6\}Key fingerprint = EC56 49DA 401E 22AB FA67  36EF 6A44 63C0 4010 2233$'
+  if ! gpg2 "${pgp_key}" 2>/dev/null | grep '^ \{6\}Key fingerprint = EC56 49DA 401E 22AB FA67  36EF 6A44 63C0 4010 2233$'
   then
     echo '[-] wrong fingerprint' 1>&2
     rm -v "${pgp_key}"
     return 1
   fi
-  gpg --keyring "${GPG_KEYRING}" --no-default-keyring --import "${pgp_key}"
+  gpg2 --keyring "${GPG_KEYRING}" --no-default-keyring --import "${pgp_key}"
   pgp_ret=${?}
   rm -v "${pgp_key}"
   return ${pgp_ret}
@@ -1818,7 +1818,7 @@ fi
 sanity_checks || exit ${RET_FAILED}
 if [ -f "${WORK_DIR}/patches/CHECKSUMS.md5" -a -f "${WORK_DIR}/patches/CHECKSUMS.md5.asc" ]
 then
-  CHECKSUMS_OLD_TS=$( gpgv "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\)\( using.*\)\?$/\1/p' )
+  CHECKSUMS_OLD_TS=$( gpgv2 "${WORK_DIR}/patches/CHECKSUMS.md5.asc" "${WORK_DIR}/patches/CHECKSUMS.md5" 2>&1 | sed -n 's/^gpgv: Signature made \(.\+\)\( using.*\)\?$/\1/p' )
   if [ -n "${CHECKSUMS_OLD_TS}" ]
   then
     CHECKSUMS_OLD_TS=$( date --date="${CHECKSUMS_OLD_TS}" +%s )
