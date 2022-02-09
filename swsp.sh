@@ -278,7 +278,7 @@ for PROGRAM in gpg2 gpgv2 md5sum upgradepkg awk gawk sed grep echo rm mkdir egre
 do
   register_prog "${PROGRAM}" || exit ${RET_FAILED}
 done
-declare COLUMNS="${COLUMNS:-`tput cols 2>/dev/null`}"
+declare COLUMNS="${COLUMNS:-$(tput cols 2>/dev/null)}"
 # TODO: we might get problems with backwards compability when slackware (32bit) upgrades to i686...
 case "${MACHTYPE%%-*}" in
   "x86_64")	SLACKWARE="slackware64"	;;
@@ -288,7 +288,7 @@ case "${MACHTYPE%%-*}" in
     exit ${RET_FAILED}
   ;;
 esac
-declare VERSION=`sed 's/^.*[[:space:]]\([0-9]\+\.[0-9]\+\).*$/\1/' /etc/slackware-version 2>/dev/null`
+declare VERSION="$(sed 's/^.*[[:space:]]\([0-9]\+\.[0-9]\+\).*$/\1/' /etc/slackware-version 2>/dev/null)"
 declare WORK_DIR="${WORK_DIR_ROOT}/${VERSION}"
 ################################################################################
 # version_checker() & do_version_check() ripped from Gary_Lerhaupt@Dell.com    #
@@ -296,28 +296,28 @@ declare WORK_DIR="${WORK_DIR_ROOT}/${VERSION}"
 ################################################################################
 version_checker() {
   local ver1=$1
-  while [ `echo $ver1 | egrep -c [^0123456789.]` -gt 0 ]; do
-    char=`echo $ver1 | sed 's/.*\([^0123456789.]\).*/\1/'`
-    char_dec=`echo -n "$char" | od -b | head -1 | awk {'print $2'}`
-    ver1=`echo $ver1 | sed "s/$char/.$char_dec/g"`
+  while [ $(echo $ver1 | egrep -c [^0123456789.]) -gt 0 ]; do
+    char="$(echo $ver1 | sed 's/.*\([^0123456789.]\).*/\1/')"
+    char_dec="$(echo -n "$char" | od -b | head -1 | awk {'print $2'})"
+    ver1="$(echo $ver1 | sed "s/$char/.$char_dec/g")"
   done
   local ver2=$2
-  while [ `echo $ver2 | egrep -c [^0123456789.]` -gt 0 ]; do
-    char=`echo $ver2 | sed 's/.*\([^0123456789.]\).*/\1/'`
-    char_dec=`echo -n "$char" | od -b | head -1 | awk {'print $2'}`
-    ver2=`echo $ver2 | sed "s/$char/.$char_dec/g"`
+  while [ $(echo $ver2 | egrep -c [^0123456789.]) -gt 0 ]; do
+    char="$(echo $ver2 | sed 's/.*\([^0123456789.]\).*/\1/')"
+    char_dec="$(echo -n "$char" | od -b | head -1 | awk {'print $2'})"
+    ver2="$(echo $ver2 | sed "s/$char/.$char_dec/g")"
   done
-  ver1=`echo $ver1 | sed 's/\.\./.0/g'`
-  ver2=`echo $ver2 | sed 's/\.\./.0/g'`
+  ver1="$(echo $ver1 | sed 's/\.\./.0/g')"
+  ver2="$(echo $ver2 | sed 's/\.\./.0/g')"
   do_version_check "$ver1" "$ver2"
 } # version_checker()
 ################################################################################
 do_version_check() {
   [ "$1" == "$2" ] && return 10
-  ver1front=`echo $1 | cut -d "." -f -1`
-  ver1back=`echo $1 | cut -d "." -f 2-`
-  ver2front=`echo $2 | cut -d "." -f -1`
-  ver2back=`echo $2 | cut -d "." -f 2-`
+  ver1front="$(echo $1 | cut -d "." -f -1)"
+  ver1back="(echo $1 | cut -d "." -f 2-)"
+  ver2front="$(echo $2 | cut -d "." -f -1)"
+  ver2back="$(echo $2 | cut -d "." -f 2-)"
   if [ "$ver1front" != "$1" ] || [ "$ver2front" != "$2" ]; then
     [ "$ver1front" -gt "$ver2front" ] && return 11
     [ "$ver1front" -lt "$ver2front" ] && return 9
