@@ -372,7 +372,7 @@ function get_file() {
   local -a TIMESTAMPS
   local -i CUT_DIRS=0
 
-  if [[ "${1}" =~ "^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$" ]]
+  if [[ "${1}" =~ ^([a-z]+)://([^/]+)/+(.+)/+([^/]+)$ ]]
   then
     #            PROTO---   HOST---  DIR-  FILE---                             #
     ############################################################################
@@ -807,7 +807,7 @@ function architecture_check() {
   then
     # kernel headers (x86) ... it's the same for x86 and x86_64 for some reason.
     return ${RET_OK}
-  elif [[ "${MACHTYPE%%-*}" =~ "^i.86$" && "${1}" =~ "^i.86$" ]]
+  elif [[ "${MACHTYPE%%-*}" =~ ^i.86$ && "${1}" =~ ^i.86$ ]]
   then
     # x86 architecture
     return ${RET_OK}
@@ -850,7 +850,7 @@ function find_ssa() {
     return ${RET_FAILED}
   elif [ ${#SSAS[*]} -eq 1 ]
   then
-    [[ "${SSAS[0]}" =~ "^.+/(SSA:[0-9-]+)\.txt$" ]] && {
+    [[ "${SSAS[0]}" =~ ^.+/(SSA:[0-9-]+)\.txt$ ]] && {
       SSA="${BASH_REMATCH[1]}"
       echo "${SSA}"
       return ${RET_OK}
@@ -962,7 +962,7 @@ function process_packages() {
       # ftp://ftp.slackware.com/pub/slackware/slackware-13.37/patches/packages/make-3.82-i486-3_slack_13.37.txz
       ############################################################################
       if \
-	[[ "${PKG_REV}" =~ "^.+slack_?(.+)$" ]] && \
+	[[ "${PKG_REV}" =~ ^.+slack_?(.+)$ ]] && \
 	  [ "x${BASH_REMATCH[1]}" != "x${VERSION}" ]
       then
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: skipping package \`${HL}${PKG_NAME}${RST}': revision = ${PKG_REV}!" 1>&2
@@ -1144,12 +1144,12 @@ function security_update()
 	if [ ${#REPLY[*]} -lt 8 ]
 	then
           continue
-	elif [[ "${REPLY[7]}" =~ "^(\./packages/.+\.t[gx]z)$" ]]
+	elif [[ "${REPLY[7]}" =~ ^(\./packages/.+\.t[gx]z)$ ]]
 	then
 	  PACKAGES+=("${BASH_REMATCH[1]}")
         # detect kernel upgrade instructions from the file list
         # for instance: ftp://ftp.slackware.com/pub/slackware/slackware-12.2/patches/packages/linux-2.6.27.31/README
-	elif [[ "${REPLY[7]}" =~ "^\./(packages/linux-.+/README)$" ]]
+	elif [[ "${REPLY[7]}" =~ ^\./(packages/linux-.+/README)$ ]]
 	then
 	  KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
 	fi
@@ -1218,7 +1218,7 @@ EOF
     fi
 
     # see if it might be a kernel update, so we can display a notice banner on the summary
-    if [[ "${PKG_NAME}" =~ "kernel" ]]
+    if [[ "${PKG_NAME}" =~ kernel ]]
     then
       KERNEL_UPGRADE=1
     fi
@@ -1435,7 +1435,7 @@ function show_upgrade_history() {
       # A `-' may be matched by including it as the first or last character in #
       # the set.                                                               #
       ##########################################################################
-      if [[ "${REMOVED_PACKAGE}" =~ "^.+/(.+)-([^-]+)-[^-]+-[^-]+-upgraded-([-0-9,:]+)$" ]]
+      if [[ "${REMOVED_PACKAGE}" =~ ^.+/(.+)-([^-]+)-[^-]+-[^-]+-upgraded-([-0-9,:]+)$ ]]
       then
         #                             pkg- vers--- arch- rev--          timestamp--
         PACKAGE="${BASH_REMATCH[1]}"
@@ -1451,7 +1451,7 @@ function show_upgrade_history() {
           echo -e "${FUNCNAME}(): ${WRN}warning${RST}: there seems to be more than one package with the same name \`${HL}${PACKAGE}${RST}'!" 1>&2
           continue
 	fi
-        if [[ "${NEW_PACKAGES[0]}" =~ "^.+/.+-([^-]+)-[^-]+-[^-]+$" ]]
+        if [[ "${NEW_PACKAGES[0]}" =~ ^.+/.+-([^-]+)-[^-]+-[^-]+$ ]]
 	then
 	  NEW_VERSION="${BASH_REMATCH[1]}"
 	fi
@@ -1502,7 +1502,7 @@ function split_package_name() {
   # returns RET_OK || RET_FAILED                                               #
   ##############################################################################
   # with file extension
-  if [[ "${1}" =~ "^(.+)-([^-]+)-([^-]+)-([^-]+)\.(t[gx]z)$" ]]
+  if [[ "${1}" =~ ^(.+)-([^-]+)-([^-]+)-([^-]+)\.(t[gx]z)$ ]]
   then
     eval ${2}_NAME=${BASH_REMATCH[1]}
     eval ${2}_VERSION=${BASH_REMATCH[2]}
@@ -1510,7 +1510,7 @@ function split_package_name() {
     eval ${2}_REV=${BASH_REMATCH[4]}
     eval ${2}_EXT=${BASH_REMATCH[5]}
   # without file extension
-  elif [[ "${1}" =~ "^(.+)-([^-]+)-([^-]+)-([^-]+)$" ]]
+  elif [[ "${1}" =~ ^(.+)-([^-]+)-([^-]+)-([^-]+)$ ]]
   then
     eval ${2}_NAME=${BASH_REMATCH[1]}
     eval ${2}_VERSION=${BASH_REMATCH[2]}
@@ -1587,7 +1587,7 @@ function sanity_checks() {
     echo "${FUNCNAME}(): error: error parsing the \`/etc/slackware-version' file!" 1>&2
     return ${RET_FAILED}
   fi
-  [[ "${VERSION}" =~ "^[0-9]+\.[0-9]+$" ]] || {
+  [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+$ ]] || {
     echo "${FUNCNAME}(): error: couldn't determine Slackware's version!" 1>&2
     return ${RET_FAILED}
   }
@@ -1622,7 +1622,7 @@ EOF
     echo "${FUNCNAME}(): error: Slackware's primary key fingerprint differs from the one that ${SWSP%\.sh} knows!?!" 1>&2
     return ${RET_FAILED}
   fi
-  [[ "${COLUMNS}" =~ "^[0-9]+$" ]] || {
+  [[ "${COLUMNS}" =~ ^[0-9]+$ ]] || {
     echo -e "${FUNCNAME}(): ${WRN}warning${RST}: couldn't determine screen width, defaulting to 80!" 1>&2
     COLUMNS=80
   }
