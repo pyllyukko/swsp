@@ -315,7 +315,7 @@ version_checker() {
 do_version_check() {
   [ "$1" == "$2" ] && return 10
   ver1front="$(echo $1 | cut -d "." -f -1)"
-  ver1back="(echo $1 | cut -d "." -f 2-)"
+  ver1back="$(echo $1 | cut -d "." -f 2-)"
   ver2front="$(echo $2 | cut -d "." -f -1)"
   ver2back="$(echo $2 | cut -d "." -f 2-)"
   if [ "$ver1front" != "$1" ] || [ "$ver2front" != "$2" ]; then
