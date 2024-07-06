@@ -342,7 +342,7 @@ function ask_user() {
     case "${REPLY}" in
       "y")
         echo "es"
-	RET=0
+        RET=0
       ;;
       "n") echo "o"		;;
       *)   echo -n $'\n'	;;
@@ -422,16 +422,16 @@ function get_file() {
       then
         # detect whether we downloaded anything
         #if [ ${#TIMESTAMPS[*]} -eq 2 ] && [ ${TIMESTAMPS[0]} -eq ${TIMESTAMPS[1]} ]
-	#then
+        #then
         #  echo "  server file no newer than local file" 1>&3
-	#else
+        #else
         #  BYTES=`stat -c%s "${WORK_DIR}/${FILE}"`
         #  echo -e "  download ${HL}succeeded${RST} (${HL}${BYTES}${RST} bytes)" 1>&3
 
         #echo -e "  download ${HL}succeeded${RST}" 1>&3
         true
 
-	#fi
+        #fi
       else
         echo -e "  download ${ERR}failed${RST}, wget returned ${WGET_RET} (\"${WGET_ERRORS[${WGET_RET}]}\")!" 1>&3
         RET=${RET_FAILED}
@@ -607,7 +607,7 @@ function gpg_verify() {
     then
       if (( ! ${QUIET_GPGV} ))
       then
-	echo "  comparing PGP signature timestamps..."
+        echo "  comparing PGP signature timestamps..."
       fi
       if [ ${CHECKSUMS_NEW_TS} -lt ${CHECKSUMS_OLD_TS} ]
       then
@@ -615,10 +615,10 @@ function gpg_verify() {
       fi
       if [ ${CHECKSUMS_AGE} -gt ${CHECKSUMS_WARN_AGE} ]
       then
-	echo -e "  ${WRN}warning${RST}: PGP timestamp of current/latest CHECKSUMS.md5 is older ${CHECKSUMS_WARN_AGE} day(s)!" 1>&2
+        echo -e "  ${WRN}warning${RST}: PGP timestamp of current/latest CHECKSUMS.md5 is older ${CHECKSUMS_WARN_AGE} day(s)!" 1>&2
       fi
     else
-	echo "  WARNING: can not compare PGP signature timestamps..."
+      echo "  WARNING: can not compare PGP signature timestamps..."
     fi
     set -u
   fi
@@ -747,28 +747,28 @@ function upgrade_package_from_mirror() {
     case ${?} in
       ${RET_OK})
         # dry-run first to check for any problems
-	echo -n $'  upgradepkg dry-run:\n    ' 1>&3
-	upgradepkg --dry-run "${WORK_DIR}/patches/${PACKAGE}" || return ${RET_FAILED}
-	if (( ${DRY_RUN} ))
-	then
-	  # dry-run mode, so we stop here.
-	  return ${RET_OK}
-	else
+        echo -n $'  upgradepkg dry-run:\n    ' 1>&3
+        upgradepkg --dry-run "${WORK_DIR}/patches/${PACKAGE}" || return ${RET_FAILED}
+        if (( ${DRY_RUN} ))
+        then
+          # dry-run mode, so we stop here.
+          return ${RET_OK}
+        else
           echo -e "  upgrading package:" 1>&3
-	  # print the informational lines out of the upgradepkg output.
-	  upgradepkg "${WORK_DIR}/patches/${PACKAGE}" | awk '/^[A-Z][a-z]/{printf "    %s\n", $0;}/^[+|]/{printf "    %s\n", $0;}'
-	  if [ ${PIPESTATUS[0]} -eq 0 ]
-	  then
+          # print the informational lines out of the upgradepkg output.
+          upgradepkg "${WORK_DIR}/patches/${PACKAGE}" | awk '/^[A-Z][a-z]/{printf "    %s\n", $0;}/^[+|]/{printf "    %s\n", $0;}'
+          if [ ${PIPESTATUS[0]} -eq 0 ]
+          then
             ####################################################################
-	    # NOTE: REMOVE LOCAL PACKAGE?                                      #
+            # NOTE: REMOVE LOCAL PACKAGE?                                      #
             ####################################################################
-	    UPGRADED_PACKAGES+=("${PACKAGE_BASENAME}")
-	    return ${RET_OK}
-	  else
-	    echo -e "    ${ERR}FAILED${RST}!" 1>&3
+            UPGRADED_PACKAGES+=("${PACKAGE_BASENAME}")
+            return ${RET_OK}
+          else
+            echo -e "    ${ERR}FAILED${RST}!" 1>&3
             return ${RET_FAILED}
-	  fi # if [ ${PIPESTATUS[0]} -eq 0 ]
-	fi # if (( ${DRY_RUN} ))
+          fi # if [ ${PIPESTATUS[0]} -eq 0 ]
+        fi # if (( ${DRY_RUN} ))
       ;;
       ${RET_FAILED})
         ########################################################################
@@ -967,8 +967,8 @@ function process_packages() {
       # ftp://ftp.slackware.com/pub/slackware/slackware-13.37/patches/packages/make-3.82-i486-3_slack_13.37.txz
       ############################################################################
       if \
-	[[ "${PKG_REV}" =~ ^.+slack_?(.+)$ ]] && \
-	  [ "x${BASH_REMATCH[1]}" != "x${VERSION}" ]
+        [[ "${PKG_REV}" =~ ^.+slack_?(.+)$ ]] && \
+          [ "x${BASH_REMATCH[1]}" != "x${VERSION}" ]
       then
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: skipping package \`${HL}${PKG_NAME}${RST}': revision = ${PKG_REV}!" 1>&2
         continue
@@ -979,17 +979,17 @@ function process_packages() {
       # NOTE: we could also run updatepkg --dry-run here?
       if [ "x${PKG_VERSION}-${PKG_REV}" = "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
       then
-	continue
+        continue
       fi
 
       # if SKIP_VERSION_TEST is set and it's not the same exact version+revision,
       # add it to the update list
       if \
-	(( ${SKIP_VERSION_TEST} )) && \
-	  # TODO: we could have upgradepkg make the following decision.
-	  [ "x${PKG_VERSION}-${PKG_REV}" != "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
+        (( ${SKIP_VERSION_TEST} )) && \
+          # TODO: we could have upgradepkg make the following decision.
+          [ "x${PKG_VERSION}-${PKG_REV}" != "x${LOCAL_PKG_VERSION}-${LOCAL_PKG_REV}" ]
       then
-	UPDATES+=("${PACKAGES[I]}")
+        UPDATES+=("${PACKAGES[I]}")
       else
         version_checker "${PKG_VERSION}" "${LOCAL_PKG_VERSION}"
         case "${?}" in
@@ -1009,7 +1009,7 @@ function process_packages() {
             # LOCAL REV > REMOTE REV || LOCAL REV == REMOTE REV                    #
             ########################################################################
             [ ${?} -ne 11 ] && continue
-	    UPDATES+=("${PACKAGES[I]}")
+            UPDATES+=("${PACKAGES[I]}")
           ;;
           ##########################################################################
           # LOCAL VERSION < REMOTE VERSION                                         #
@@ -1146,18 +1146,18 @@ function security_update()
       # -rw-r--r--  1 root root 20490788 2011-06-16 02:03 ./packages/seamonkey-2.1-i486-1_slack13.37.txz
       while read -a REPLY
       do
-	if [ ${#REPLY[*]} -lt 8 ]
-	then
+        if [ ${#REPLY[*]} -lt 8 ]
+        then
           continue
-	elif [[ "${REPLY[7]}" =~ ^(\./packages/.+\.t[gx]z)$ ]]
-	then
-	  PACKAGES+=("${BASH_REMATCH[1]}")
+        elif [[ "${REPLY[7]}" =~ ^(\./packages/.+\.t[gx]z)$ ]]
+        then
+          PACKAGES+=("${BASH_REMATCH[1]}")
         # detect kernel upgrade instructions from the file list
         # for instance: ftp://ftp.slackware.com/pub/slackware/slackware-12.2/patches/packages/linux-2.6.27.31/README
-	elif [[ "${REPLY[7]}" =~ ^\./(packages/linux-.+/README)$ ]]
-	then
-	  KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
-	fi
+        elif [[ "${REPLY[7]}" =~ ^\./(packages/linux-.+/README)$ ]]
+        then
+          KERNEL_UPGRADE_README="${MAIN_MIRROR}/${SLACKWARE}-${VERSION}/patches/${BASH_REMATCH[1]}"
+        fi
       done 0<"${WORK_DIR}/patches/FILE_LIST"
     ;;
     *)
@@ -1239,41 +1239,41 @@ EOF
         # print a message of successful upgrade, also log it if USE_SYSLOG=1.
         if (( ! ${DRY_RUN} ))
         then
-	  # NOTE: LOCAL_PKG_* variables are not bound at this point.
-	  MESSAGE="successfully upgraded package \`${PKG_NAME}' to version ${PKG_VERSION}-${PKG_REV}"
-	  # arithmetic - http://www.gnu.org/software/bash/manual/bashref.html#Conditional-Constructs
-	  if (( ${USE_SYSLOG} ))
-	  then
-	    logger -t "${0##*/}" "${FUNCNAME}(): ${MESSAGE}"
-	  fi
-	  echo "${MESSAGE}" 1>&4
-	  if (( ${RESTART_SERVICES} ))
-	  then
-	    # if there is an init script and it is executable, add the service to the list to be restarted
-	    set +u
-	    if [ -n "${SERVICE_INIT_SCRIPTS[${PKG_NAME}]}" -a -x "${SERVICE_INIT_SCRIPTS[${PKG_NAME}]}" ]
-	    then
-	      SERVICES_TO_RESTART+=("${PKG_NAME}")
-	    fi
-	    set -u
-	  fi
-	fi
+          # NOTE: LOCAL_PKG_* variables are not bound at this point.
+          MESSAGE="successfully upgraded package \`${PKG_NAME}' to version ${PKG_VERSION}-${PKG_REV}"
+          # arithmetic - http://www.gnu.org/software/bash/manual/bashref.html#Conditional-Constructs
+          if (( ${USE_SYSLOG} ))
+          then
+            logger -t "${0##*/}" "${FUNCNAME}(): ${MESSAGE}"
+          fi
+          echo "${MESSAGE}" 1>&4
+          if (( ${RESTART_SERVICES} ))
+          then
+            # if there is an init script and it is executable, add the service to the list to be restarted
+            set +u
+            if [ -n "${SERVICE_INIT_SCRIPTS[${PKG_NAME}]}" -a -x "${SERVICE_INIT_SCRIPTS[${PKG_NAME}]}" ]
+            then
+              SERVICES_TO_RESTART+=("${PKG_NAME}")
+            fi
+            set -u
+          fi
+        fi
       ;;
       1)
-	echo -e "  ${FUNCNAME}(): ${ERR}error${RST}: couldn't upgrade package \`${HL}${PKG_NAME}${RST}'!" 1>&3
-	#if [ "${PKG_LIST_MODE}" = "ChangeLog" ]
-	#then
-	#  echo -e "  ${HL}tip${RST}: you could try to upgrade with \`${HL}./${SWSP} -u -f ftp${RST}'." 1>&3
-	#fi
-	echo "failed to upgrade package \`${PKG_NAME}'!" 1>&4
-	#FAILED_PACKAGES[${#FAILED_PACKAGES[*]}]="${PKG_NAME}"
-	FAILED_PACKAGES+=("${PKG_NAME}")
+        echo -e "  ${FUNCNAME}(): ${ERR}error${RST}: couldn't upgrade package \`${HL}${PKG_NAME}${RST}'!" 1>&3
+        #if [ "${PKG_LIST_MODE}" = "ChangeLog" ]
+        #then
+        #  echo -e "  ${HL}tip${RST}: you could try to upgrade with \`${HL}./${SWSP} -u -f ftp${RST}'." 1>&3
+        #fi
+        echo "failed to upgrade package \`${PKG_NAME}'!" 1>&4
+        #FAILED_PACKAGES[${#FAILED_PACKAGES[*]}]="${PKG_NAME}"
+        FAILED_PACKAGES+=("${PKG_NAME}")
       ;;
       # FATAL ERROR                                                            #
       ${RET_FERROR})
-	echo -e "${ERR}error${RST}: cannot upgrade any packages!" 1>&2
-	RET=${RET_FAILED}
-	break
+        echo -e "${ERR}error${RST}: cannot upgrade any packages!" 1>&2
+        RET=${RET_FAILED}
+        break
       ;;
     esac
   done
@@ -1452,14 +1452,14 @@ function show_upgrade_history() {
         NEW_PACKAGES=(${GLOB})
         shopt -u extglob
         if [ ${#NEW_PACKAGES[*]} -ne 1 ]
-	then
+        then
           echo -e "${FUNCNAME}(): ${WRN}warning${RST}: there seems to be more than one package with the same name \`${HL}${PACKAGE}${RST}'!" 1>&2
           continue
-	fi
+        fi
         if [[ "${NEW_PACKAGES[0]}" =~ ^.+/.+-([^-]+)-[^-]+-[^-]+$ ]]
-	then
-	  NEW_VERSION="${BASH_REMATCH[1]}"
-	fi
+        then
+          NEW_VERSION="${BASH_REMATCH[1]}"
+        fi
         echo "${TIMESTAMP}:|${PACKAGE}|${VERSION}|->|${NEW_VERSION}"
       else
         echo -e "${FUNCNAME}(): ${WRN}warning${RST}: error in regular expression or package name \`${REMOVED_PACKAGE##*/}'!" 1>&2
@@ -1712,7 +1712,7 @@ function update_advisories() {
          ! -s "${WORK_DIR}/advisories/${YEAR}/${SSA}.txt" ]
     then
       wget --connect-timeout=${WGET_TIMEOUT} --tries=${WGET_RETRIES} --quiet --output-document=- "${URL}" | \
-	sed -n '/-----BEGIN PGP SIGNED MESSAGE-----/,/-----END PGP SIGNATURE-----/p' | sed -e '1s/^.*>//' -e 's/&quot;/"/g' 1>"${WORK_DIR}/advisories/${YEAR}/${SSA}.txt"
+        sed -n '/-----BEGIN PGP SIGNED MESSAGE-----/,/-----END PGP SIGNATURE-----/p' | sed -e '1s/^.*>//' -e 's/&quot;/"/g' 1>"${WORK_DIR}/advisories/${YEAR}/${SSA}.txt"
       ((NEW_COUNT++))
     fi
   done 0<"${WORK_DIR}/advisories/${YEAR}/advisories.txt"
