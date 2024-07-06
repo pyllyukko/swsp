@@ -892,6 +892,11 @@ function process_packages() {
       echo -e "${FUNCNAME}(): ${WRN}warning${RST}: package \`${PACKAGE_BASENAME}' failed the architecture check (${PKG_ARCH} vs. ${MACHTYPE%%-*}), skipping!"
       continue
     }
+    if [[ ${PACKAGES[${I}]} =~ packages/old-linux- ]]
+    then
+      echo -e "${FUNCNAME}(): ${HL}notice${RST}: skipping \"old-linux\" package ${PKG_NAME}-${PKG_VERSION}" 1>&3
+      continue
+    fi
     ############################################################################
     # 25.8.2008: ok, so this is kinda ugly too, but better than ls|grep ;)     #
     #            since we can't use (s or )s in a array declaration            #
